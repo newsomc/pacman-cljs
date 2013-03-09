@@ -65,10 +65,6 @@
   [pos type]
   (set! const/EMPTY (map-pos (:y pos) (:x pos))))
 
-(defn pills-canvas []
-
-)
-
 
 (defn draw-pills [ctx]
   (helper/console-log "hi")
@@ -136,4 +132,7 @@
   (swap! map-state assoc-in [:map] const/game-map)
   (swap! map-state assoc-in [:height] (alength const/game-map))
   (swap! map-state assoc-in [:width] (alength (aget const/game-map 0))))
+
 (reset)
+
+

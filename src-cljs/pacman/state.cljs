@@ -1,7 +1,8 @@
 (ns pacman.state
   (:require [pacman.constants :as const]))
 
-(def game-state (atom {:state const/WAITING
+
+(def game-state (atom {:state (:waiting const/game-const)
                        :audio []
                        :ghosts []
                        :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -18,6 +19,7 @@
                        :map nil
                        :user nil
                        :stored nil
+                       :n-score 0
                        :block-size nil}))
 
 

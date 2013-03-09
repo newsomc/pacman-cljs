@@ -5,7 +5,9 @@
                        :progress-events []
                        :playing []}))
 
-(defn load [name path cb])
+(defn load [name path cb]
+  (let [f ()])
+)
 
 (defn progress [event name callback])
 
@@ -15,6 +17,6 @@
 
 (defn play [name])
 
-(defn pause [])
+(defn pause [] (println "hi"))
 
 (defn resume [])
