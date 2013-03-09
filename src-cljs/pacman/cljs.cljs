@@ -151,14 +151,11 @@
   (dialog "Press N to Start" (:ctx @state/game-state))
   (.setInterval js/window (main-loop) (/ 1000 const/FPS)))
 
-(defn load [my-vec callback]
-  (callback) 
-  (if (= (count my-vec) 0) 
-    ;;...this should work?
-    (callback)
-    #_(do
-      (let [x (last my-vec)]
-        (audio/load (nth x 0) (nth x 1)) #(load my-vec callback)))))
+(defn load [audio-files callback]
+  (if (= (count audio-files) 0) (callback)
+      (doseq [file audio-files]
+        (let [[name path] audio-files]
+          (audio/load name path (load audio-files (callback)))))))
 
 (defn init [wrapper root]
   (let [canvas (.createElement js/document "canvas")
@@ -186,11 +183,8 @@
                                                           :color nil}))
 
     (helper/console-log (:ghosts @state/game-state))
-
     (gamemap/draw (:ctx @state/game-state)) 
-
     (dialog "Loading..." (:ctx @state/game-state))
-
     (let [extension (str "mp3")
           audio-files [{:start (str root "audio/opening_song." extension)}
                        {:die (str root  "audio/die." extension)}
