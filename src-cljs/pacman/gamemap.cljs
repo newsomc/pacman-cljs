@@ -67,7 +67,6 @@
 
 
 (defn draw-pills [ctx]
-  (helper/console-log "hi")
   (if (> (inc (:pill-size @map-state)) 30) 
     (swap! map-state assoc-in [:pill-size] 0))
   (let [height (:height @map-state)

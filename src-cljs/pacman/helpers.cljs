@@ -7,9 +7,6 @@
 (defn console-log [var]
   (.log js/console (pr-str var)))
 
-(defn console-log-2 [var]
-  (.log js/console (clj->js var)))
-
 ;;------------------------------------------------------------------------------------------ 
 ;; Helpers
 
@@ -25,8 +22,7 @@
       (swap! state/game-state assoc-in [key] value)))
 
 (defn get-tick []
-;  (:tick @state/game-state)
-)
+  (:tick @state/game-state))
 
 (defn point-to-coord [x]
   (Math/round (/ x 10)))
