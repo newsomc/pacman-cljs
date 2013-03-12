@@ -36,13 +36,14 @@
 
 (defn start-level []
   (user/reset-position)
-  #_(for [ghost (:ghosts @state/game-state)]
+  (ghost/reset-ghost-state! (:ghosts @state/game-state))
 
-    ;(helper/console-log ghost)
-    (ghost/reset ghost))
-  (audio/play "start")
-  (swap! state/game-state assoc-in [:timer-start] (:tick @game-state))
-  (set-state (:countdown const/game-const)))
+  ;(audio/play "start")
+  ;(swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
+  ;(set-state (:countdown const/game-const))
+)
+
+(helper/console-log (:ghosts @state/game-state))
 
 (defn start-new-game []
   (set-state (:const const/game-const))
@@ -50,15 +51,21 @@
   (user/reset)
   (gamemap/reset)
   (gamemap/draw (:ctx @state/game-state))
-  (start-level))
+  (start-level)
+)
 
-(defn key-down [e] 
-  (if-not (and (= (.-keyCode e) nil) (= (.-keyCode e) "undefined"))
-    (do
-      (let [key-code (.-keyCode e)]
-        (swap! user/user-state assoc-in [:due] (get user/key-map key-code))
-        (.preventDefault e)
-        (.stopPropagation e)))))
+(defn key-down [e]
+  ;(helper/console-log (= (.-keyCode e) (:N (:keys @const/KEY))))
+  (cond 
+   (= (.-keyCode e) (:N (:keys @const/KEY))) (start-new-game)
+
+   ;; (= (.-keyCode e) (:S @const/KEY))(do (audio/disable-sound)   
+   ;;                                     (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false))
+   ;; (and (= (.-keyCode e) (:P (:keys @const/KEY))) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
+   ;;                                                                                                             (gamemap/draw (:ctx @state/game-state)) 
+   ;;                                                                                                             (set-state (:stored @state/game-state)))
+   ;; (= (.-keyCode e) (:P (:keys @const/KEY))) (user/keydown e))
+))
 
 (defn lose-life [])
 
@@ -146,7 +153,7 @@
         (set-state (:dying const/game-const))
         (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))))))
 
-(defn start-new-game []
+(defn start-game []
   (swap! state/game-state assoc-in [:state-changed] false)
   (gamemap/draw (:ctx @state/game-state))
   (dialog "Press N to start a New game" (:ctx @state/game-state)))
@@ -189,7 +196,7 @@
   (let [state (:state @state/game-state)]
     (cond 
      (= state (:playing const/game-const)) (main-draw)
-     (and (= state (:waiting const/game-const)) (:state-changed @state/game-state)) (start-new-game) 
+     (and (= state (:waiting const/game-const)) (:state-changed @state/game-state)) (start-game) 
      (and (= state (:eaten-pause const/game-const)) (> (- (:tick @state/game-state) (:timeser-start @state/game-state)) (* const/FPS 2))) (game-playing)       
      (= (:state @state/game-state) (:dying (const/game-const))) (game-dying)
      (= (:state @state/game-state) (:countdown const/game-const)) (game-countdown)))
@@ -226,27 +233,16 @@
 (defn init [wrapper root]
   (let [canvas (.createElement js/document "canvas")
         block-size (/ (.-offsetWidth wrapper) 19)]
+
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
 
-    ;; Set mutable vars
     (swap! state/game-state assoc-in [:ctx] (.getContext canvas "2d"))
     (swap! gamemap/map-state assoc-in [:block-size] block-size)
     (swap! state/game-state update-in [:audio] conj {:sound-disabled true})
     (swap! state/game-state update-in [:user] conj {:completed-level completed-level
                                                     :eaten-pill eaten-pill})
-
-    (doseq [specs (:ghost-specs @state/game-state)]
-        (swap! state/game-state update-in [:ghosts] conj {:get-tick (helper/get-tick) 
-                                                          :map (:map @state/game-state) 
-                                                          :specs specs
-                                                          :eatable nil
-                                                          :due nil
-                                                          :position nil
-                                                          :direction nil
-                                                          :eaten nil
-                                                          :color nil}))
     (gamemap/draw (:ctx @state/game-state)) 
     (dialog "Loading..." (:ctx @state/game-state))
     (let [extension (str "mp3")
@@ -261,4 +257,3 @@
 ;; Init!
 (def elem (helper/get-element-by-id "pacman"))
 (.setTimeout js/window (fn [x] (init elem "./")) 0)
-;(set! (.-onload js/window) (init elem "./"))

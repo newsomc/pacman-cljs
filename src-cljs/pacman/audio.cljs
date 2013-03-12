@@ -21,14 +21,16 @@
     (.pause elem)))
 
 (defn disable-sound []
-  (helper/console-log @audio-state)
   (doseq [track (:playing @audio-state)]
 ;    (pause (playing (track (:files @audio-state))))
 ))
 
 (defn ended [name])
 
-(defn play [name])
+(defn play 
+  "Implement me!"
+  [name]
+  (helper/console-log name))
 
 (defn pause [] (println "hi"))
 

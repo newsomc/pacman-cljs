@@ -36,7 +36,6 @@
 
  (defn draw-wall 
    [ctx]
-   (helper/console-log ctx)
    (set! (. ctx -strokeStyle) "#0000FF")
    (set! (. ctx -lineWidth) 5)
    (set! (. ctx -lineCap) "round")

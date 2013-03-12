@@ -32,7 +32,7 @@
    (swap! KEY update-in [:keys] conj (map #(hash-map (keyword (str "NUM_PAD_" (- %1 96))) %1) (range 96 105)))
    (swap! KEY update-in [:keys] conj (map #(hash-map (keyword (str "F" (- %1 (+ 112 1)))) %1) (range 112 124)))))
 
-(console-log (:keys @KEY))
+;(console-log (:keys @KEY))
 
 (def game-map (to-array-2d   
   [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],

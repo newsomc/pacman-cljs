@@ -12,8 +12,8 @@
                        :npos nil
                        :key-map {}}))
 
-;(helper/console-log (:keys @const/KEY))
-#_(def key-map {(:ARROW_LEFT (:keys @const/KEY)) (:left const/game-const)
+
+(def key-map {(:ARROW_LEFT (:keys @const/KEY)) (:left const/game-const)
               (:ARROW_UP (:keys @const/KEY)) (:up const/game-const)
               (:ARROW_RIGHT (:keys @const/KEY)) (:right const/game-const)
               (:ARROW_DOWN (:keys @const/KEY)) (:down const/game-const)})
@@ -50,7 +50,13 @@
   (init-user)
   (reset-position))
 
-(defn key-down [e])
+(defn key-down [e] 
+  (if-not (and (= (.-keyCode e) nil) (= (.-keyCode e) "undefined"))
+    (do
+      (let [key-code (.-keyCode e)]
+        (swap! user/user-state assoc-in [:due] (get user/key-map key-code))
+        (.preventDefault e)
+        (.stopPropagation e)))))
 
 (defn get-new-coord [dir current]
   (let [current-y (or (and (= dir (:left @const/game-const)) -2)

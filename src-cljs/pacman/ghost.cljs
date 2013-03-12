@@ -48,13 +48,25 @@
                 [(:up const/game-const) (:down const/game-const)]
                 [(:left const/game-const) (:right const/game-const)])]))
 
-(defn reset-game-state! []
-  (doseq [ghost (:ghosts @state/game-state)]
-    (swap! state/game-state assoc-in [:eaten] nil)
-    (swap! state/game-state assoc-in [:eatable] nil)
-    (swap! state/game-state assoc-in [:position] {:x 90 :y 80})
-    (swap! state/game-state assoc-in [:direction] (get-random-direction ghost))
-    (swap! state/game-state assoc-in [:due] (get-random-direction ghost))))
+;; =====================================================
+;; Ghost state
+
+(defn ghost-init-state [ghost] {:eaten true, 
+                                :eatable true, 
+                                :position {:x 90, :y 80}
+                                :direction (get-random-direction ghost)
+                                :due (get-random-direction ghost)})
+
+(defn reset-ghost
+  [ghost]
+  (merge-with merge ghost (ghost-init-state ghost)))
+
+(defn reset-ghost-state! [ghosts]
+  (helper/console-log "hi")
+  (helper/console-log ghosts)
+  #_(swap! @state/game-state (fn [state] (update-in ghosts [:ghosts] #(map reset-ghost ghosts)))))
+
+;; =====================================================
 
 (defn on-whole-square [x]
   (== (mod x 10) 0))
