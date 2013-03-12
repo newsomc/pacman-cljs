@@ -11,3 +11,4 @@ pom.xml
 .lein-plugins
 .lein-env
 .lein-cljsbuild-compiler-0
+/resources/public/js/cljs.js
