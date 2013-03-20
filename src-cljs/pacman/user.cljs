@@ -50,7 +50,7 @@
   (swap! user-state assoc-in [:eaten] 0))
 
 (defn init-user []
-  (helper/console-log "init user called!!")
+  (helper/console-log "Init user called!!")
   (swap! user-state assoc-in [:score] 0)
   (swap! user-state assoc-in [:lives] 3)
   (new-level))
@@ -72,30 +72,32 @@
 
 (defn get-new-coord [dir pos]
   (helper/console-log (str "get new cord DIR: " dir " POS: " pos))
-  (let [current-y (or (and (= dir (:left const/game-const)) -2)
-                      (and (= dir (:right const/game-const)) 2) 
-                      0)
-        current-x (or (and (= dir (:down const/game-const)) -2)
-                      (and (= dir (:up const/game-const)) 2) 
-                      0)]
-    {:x (+ (:x pos) current-x)
-     :y (+ (:y pos) current-y)}))
+  (let [y (or (and (= dir (:left const/game-const)) -2)
+              (and (= dir (:right const/game-const)) 2) 
+              0)
+        x (or (and (= dir (:down const/game-const)) -2)
+              (and (= dir (:up const/game-const)) 2) 
+              0)]
+    {:x (+ (:x pos) x)
+     :y (+ (:y pos) y)}))
 
 (defn on-whole-square? [x]
   (= (mod x 10) 0))
 
-(defn print-to-coord [n]
+(defn point-to-coord [n]
   (Math/round (/ n 10)))
 
 (defn next-square [coord dir]
+  (helper/console-log (str "Next square called: " coord))
   (let [rem (mod coord 10)]
+    (helper/console-log (str "Rem - next square: " rem))
     (cond (= rem 0) coord
           (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ coord (- 10 rem))
           :else (- coord rem))))
 
 (defn next-pos [pos dir]
-  {:y (print-to-coord (next-square (:y pos) dir))
-   :x (print-to-coord (next-square (:x pos) dir))})
+  {:y (point-to-coord (next-square (:y pos) dir))
+   :x (point-to-coord (next-square (:x pos) dir))})
 
 (defn on-grid-square? [pos]
   (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
@@ -123,13 +125,13 @@
   (ghost/make-eatable!))
 
 (defn move-user-1 [npos pos due dir]
+  (helper/console-log (str "move-user-1/get-new-coord: " (get-new-coord due pos)))
   (swap! user-state assoc-in [:npos] (get-new-coord due pos))
   (if (and (or (is-on-same-plane? due dir) (on-grid-square? pos)) (gamemap/is-floor-space? (next-pos npos due)))  
     (swap! user-state assoc-in [:direction] due)
     (swap! user-state assoc-in [:npos] nil)))
 
 (defn move! []
-
   (let [npos (:npos @user-state)
         position (:position @user-state)
         old-position position
@@ -137,22 +139,24 @@
         direction (:direction @user-state)]
 
     (cond 
-          (not= due direction) (move-user-1 npos position due direction)
-          (= npos nil) (swap! user-state assoc-in [:npos] (get-new-coord direction position))
-          (and (on-grid-square? position) (gamemap/is-wall-space? (next-pos npos direction))) (swap! user-state assoc-in [:direction] (:none const/game-const))
-          (= direction (:none const/game-const)) (do (swap! user-state update-in [:curr-pos] conj {:new position :old position}))
-          (and (= (:y npos) 100) (>= (:x npos) 190) (= direction (:right const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x -10})
-          (and (= (:y npos) 100) (<= (:x npos) -12) (= direction (:left const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x 190}))
+     (not= due direction) (move-user-1 npos position due direction)
+     (= npos nil) (swap! user-state assoc-in [:npos] (get-new-coord direction position))
+     (and (on-grid-square? position) (gamemap/is-wall-space? (next-pos npos direction))) (swap! user-state assoc-in [:direction] (:none const/game-const))
+     (= direction (:none const/game-const)) (do (swap! user-state update-in [:curr-pos] conj {:new position :old position}))
+     (and (= (:y npos) 100) (>= (:x npos) 190) (= direction (:right const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x -10})
+     (and (= (:y npos) 100) (<= (:x npos) -12) (= direction (:left const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x 190}))
     
     (swap! user-state assoc-in [:position] (:npos @user-state))
     (swap! user-state assoc-in [:next-whole] (next-pos position direction))
     (swap! user-state assoc-in [:block] (gamemap/block (:next-whole @user-state)))
+    (helper/console-log (str "next-pos: " (:next-whole @user-state)))
+
 
     (if (and (or (is-mid-square? (:y position)) (is-mid-square? (:x position)))
              (or (= (:block @user-state) const/BISCUIT) (= (:block @user-state) const/PILL)))
       (do
         (gamemap/set-block (:next-whole @user-state) const/EMPTY)
-        (add-score (if (= (:block @user-state) const/BISCUIT) 10 50))
+        ;(add-score (if (= (:block @user-state) const/BISCUIT) 10 50))
         (swap! user-state update-in [:eaten] (fnil inc 1))
         (if (= (:eaten @user-state) 182)
           (completed-level))
@@ -207,5 +211,5 @@
 
     (.fill ctx)))
 
-;;(init-user)
+(init-user)
 
