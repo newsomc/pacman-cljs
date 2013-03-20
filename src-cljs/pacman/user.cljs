@@ -1,15 +1,19 @@
 (ns pacman.user
   (:require [pacman.constants :as const]
             [pacman.state :as state]
-            [pacman.helpers :as helper]))
+            [pacman.helpers :as helper]
+            [pacman.gamemap :as gamemap]))
 
-(def user-state (atom {:position nil
+(def user-state (atom {:position {:x 90 :y 120}
                        :direction nil
                        :eaten 0
                        :due nil
                        :lives 0
                        :score 5
-                       :npos nil
+                       :npos {:x 90 :y 120}
+                       :next-whole nil
+                       :block nil
+                       :curr-pos nil
                        :key-map {}}))
 
 
@@ -32,6 +36,10 @@
 (defn get-lives []
   (:lives @user-state))
 
+;; =====================================================
+;; Reset user position
+;; =====================================================
+
 (defn reset-position []
   (swap! user-state assoc-in [:position] {:x 90 :y 120})
   (swap! user-state assoc-in [:direction] (:left const/game-const))
@@ -42,6 +50,7 @@
   (swap! user-state assoc-in [:eaten] 0))
 
 (defn init-user []
+  (helper/console-log "init user called!!")
   (swap! user-state assoc-in [:score] 0)
   (swap! user-state assoc-in [:lives] 3)
   (new-level))
@@ -50,35 +59,39 @@
   (init-user)
   (reset-position))
 
+;; =====================================================
+
 (defn key-down [e] 
   (if-not (and (= (.-keyCode e) nil) (= (.-keyCode e) "undefined"))
     (do
       (let [key-code (.-keyCode e)]
-        (swap! user/user-state assoc-in [:due] (get user/key-map key-code))
+        (swap! user-state assoc-in [:due] (get key-map key-code))
+        (helper/console-log (get key-map key-code))
         (.preventDefault e)
         (.stopPropagation e)))))
 
-(defn get-new-coord [dir current]
-  (let [current-y (or (and (= dir (:left @const/game-const)) -2)
-                      (and (= dir (:right @const/game-cont)) 2) 
+(defn get-new-coord [dir pos]
+  (helper/console-log (str "get new cord DIR: " dir " POS: " pos))
+  (let [current-y (or (and (= dir (:left const/game-const)) -2)
+                      (and (= dir (:right const/game-const)) 2) 
                       0)
-        current-x (or (and (= dir (:down @const/game-const)) -2)
-                      (and (= dir (:up @const/game-cont)) 2) 
+        current-x (or (and (= dir (:down const/game-const)) -2)
+                      (and (= dir (:up const/game-const)) 2) 
                       0)]
-    {:x (+ (:x current) (current-y))
-     :y (+ (:y current) (current-y))}))
+    {:x (+ (:x pos) current-x)
+     :y (+ (:y pos) current-y)}))
 
 (defn on-whole-square? [x]
   (= (mod x 10) 0))
 
-(defn print-to-coord [x]
-  (Math/round (/ x 10)))
+(defn print-to-coord [n]
+  (Math/round (/ n 10)))
 
-(defn next-square [x dir]
-  (let [rem (mod x 10)]
-    (cond (= rem 0) x
-          (or (= dir (:right @const/game-const)) (= dir (:down @const/game-const))) (+ x (- 10 rem))
-          :else (- x rem))))
+(defn next-square [coord dir]
+  (let [rem (mod coord 10)]
+    (cond (= rem 0) coord
+          (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ coord (- 10 rem))
+          :else (- coord rem))))
 
 (defn next-pos [pos dir]
   {:y (print-to-coord (next-square (:y pos) dir))
@@ -88,58 +101,73 @@
   (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
 
 (defn is-on-same-plane? [due dir]
-  (or (and (or (= due (:left @const/game-const)) (= due (:right @const/game-const))) 
-           (or (= dir (:left @const/game-const)) (= dir (:right @const/game-const))))
-      (and (or (= due (:up @const/game-const)) (= due (:down @const/game-const))) 
-           (or (= dir (:up @const/game-const)) (= dir (:down @const/game-const))))))
+  (or (and (or (= due (:left const/game-const)) (= due (:right const/game-const))) 
+           (or (= dir (:left const/game-const)) (= dir (:right const/game-const))))
+      (and (or (= due (:up const/game-const)) (= due (:down const/game-const))) 
+           (or (= dir (:up const/game-const)) (= dir (:down const/game-const))))))
 
 (defn is-mid-square? [x]
   (let [rem (mod x 10)]
     (or (> rem 3) (< rem 7))))
 
-(defn move-user-1 [npos due]
-  (swap! user-state assoc-in [:npos] (get-new-coord npos (:position @user-state)))
-  (if (or (is-on-same-plane? (:due @user-state) (:direction @user-state))
-          (and (on-grid-square? (:position @user-state)) (map/is-floor-space (next-pos npos due)))) (swap! user-state assoc-in [:direction] (:due @user-state))
-          (swap! user-state assoc-in [:npos] nil)))
+(defn completed-level []
+ (helper/set-state (:waiting const/game-const))
+ (swap! state/game-state update-in [:level] (fnil inc 1))
+ (gamemap/reset)
+ (new-level)
+ (pacman.core/start-level))
 
-(defn move [ctx]
+(defn eaten-pill []
+  (audio/play "eatpill")
+  (swap! state/game-state assoc-in [:timer] (:tick @state/game-state))
+  (ghost/make-eatable!))
+
+(defn move-user-1 [npos pos due dir]
+  (swap! user-state assoc-in [:npos] (get-new-coord due pos))
+  (if (and (or (is-on-same-plane? due dir) (on-grid-square? pos)) (gamemap/is-floor-space? (next-pos npos due)))  
+    (swap! user-state assoc-in [:direction] due)
+    (swap! user-state assoc-in [:npos] nil)))
+
+(defn move! []
+
   (let [npos (:npos @user-state)
-        old-position (:position @user-state)
         position (:position @user-state)
-        due (:due @user-state)]
-    (cond (not= (:due @user-state) (:direction @user-state)) (move-user-1 npos due)
-          (= npos nil) (swap! user-state assoc-in [:npo] (get-new-coord (:direction @user-state) (:postion @user-state)))
-          (and (on-grid-square? (:position @user-state)) (gamemap/is-wall-space (next-pos npos (:direction @user-state)))) (swap! user-state assoc-in [:direction] (:none const/game-const))
-          (= (:direction @user-state) (:none const/game-const)) {:new (:position @user-state) :old (:position @user-state)}
-          (and (= (:y npos) 100) (>= (:x npos) 190) (= (:direction @user-state) (:right const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x -10})
-          (and (= (:y npos) 100) (<= (:x npos) -12) (= (:direction @user-state) (:left const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x 190}))
-    (do
-      (swap! user-state assoc-in [:position] (:npos @user-state))
-      (swap! user-state assoc-in [:next-whole] (next-pos (:position @user-state) (:direction @user-state)))
-      (swap! user-state assoc-in [:block] (gamemap/block (:next-whole @user-state))))
+        old-position position
+        due (:due @user-state)
+        direction (:direction @user-state)]
+
+    (cond 
+          (not= due direction) (move-user-1 npos position due direction)
+          (= npos nil) (swap! user-state assoc-in [:npos] (get-new-coord direction position))
+          (and (on-grid-square? position) (gamemap/is-wall-space? (next-pos npos direction))) (swap! user-state assoc-in [:direction] (:none const/game-const))
+          (= direction (:none const/game-const)) (do (swap! user-state update-in [:curr-pos] conj {:new position :old position}))
+          (and (= (:y npos) 100) (>= (:x npos) 190) (= direction (:right const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x -10})
+          (and (= (:y npos) 100) (<= (:x npos) -12) (= direction (:left const/game-const))) (swap! user-state assoc-in [:npos] {:y 100 :x 190}))
+    
+    (swap! user-state assoc-in [:position] (:npos @user-state))
+    (swap! user-state assoc-in [:next-whole] (next-pos position direction))
+    (swap! user-state assoc-in [:block] (gamemap/block (:next-whole @user-state)))
+
     (if (and (or (is-mid-square? (:y position)) (is-mid-square? (:x position)))
              (or (= (:block @user-state) const/BISCUIT) (= (:block @user-state) const/PILL)))
       (do
         (gamemap/set-block (:next-whole @user-state) const/EMPTY)
         (add-score (if (= (:block @user-state) const/BISCUIT) 10 50))
-        (swap! user-state assoc-in [:eaten] (fnil inc 1))
-        
+        (swap! user-state update-in [:eaten] (fnil inc 1))
         (if (= (:eaten @user-state) 182)
-          (helpers/completed-level))
-
+          (completed-level))
         (if (= (:block @user-state) const/PILL)
-          (helpers/eaten-pill))))))
+          (eaten-pill))))))
 
 (defn calc-angle [dir pos]
-  (cond (and (= dir (:right @const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
-        (and (= dir (:down @const/game-const)) (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
-        (and (= dir (:up @const/game-const)) (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
-        (and (= dir (:left @const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
+  (cond (and (= dir (:right const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
+        (and (= dir (:down  const/game-const)) (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
+        (and (= dir (:up const/game-const)) (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
+        (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
         :else {:start 0 :end 2 :direction false}))
 
 (defn draw-dead [ctx amount]
-  (let [size (:block-size @state/game-state)
+  (let [size (:block-size @gamemap/map-state)
         half (/ size 2)
         position (:position @user-state)]
     (if-not (>= amount 1)
@@ -157,20 +185,27 @@
                   true)
         (.fill ctx)))))
 
-(defn draw [ctx]
-  (let [s (:block-size @state/game-state)
-        angle (calc-angle (:direction @user-state) (:position @user-state))
-        position (:position @user-state)]
+(defn draw []
+  (let [ctx (:ctx @state/game-state)
+        s (:block-size @gamemap/map-state)
+        position (:position @user-state)
+        angle (calc-angle (:direction @user-state) position)]
+
     (set! (. ctx  -fillStyle) "#FFFF00")
+
     (.beginPath ctx)
+
     (.moveTo ctx (+ (* (/ (:x position) 10) s) (/ s 2))
-                 (+ (* (/ (:y position) 10) s) (/ s 2))
-                 (/ s 2)
-                 (* (.-PI js/Math) (:start angle))
-                 (* (.-PI js/Math) (:end angle))
-                 (:direction angle))
+                 (+ (* (/ (:y position) 10) s) (/ s 2)))
+
+    (.arc ctx (+ (* (/ (:x position) 10) s) (/ s 2))
+              (+ (* (/ (:y position) 10) s) (/ s 2))
+              (/ s 2)
+              (* (.-PI js/Math) (:start angle))
+              (* (.-PI js/Math) (:end angle))
+              (:direction angle))
+
     (.fill ctx)))
 
-(init-user)
-
+;;(init-user)
 
