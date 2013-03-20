@@ -10,29 +10,25 @@
                       :map const/game-map}))
 
 (defn map-pos 
-  "Just a conveneince function for returning a 2d vector cell."
   [y x]
   (aget const/game-map y x))
 
 (defn within-bounds 
-  "Todo: fill me out!"
   [x y]
   (and (>= y 0) (< y (:height @map-state)) (>= x =) (< x (:width @map-state))))
 
-(defn is-wall 
-  "Todo: fill me out!"
+(defn is-wall-space? 
   [pos]
   (and (within-bounds (:y pos) (:x pos)) 
-       (== (const/WALL) (map-pos (:y pos) (:x pos)))))
+       (= const/WALL (map-pos (:y pos) (:x pos)))))
 
-(defn is-floor-space 
-  "Todo: fill me out! Also, 'if-not' is probably not what we need here. "
+(defn is-floor-space? 
   [pos]
   (if-not (within-bounds (:y pos) (:x pos))
     (let [piece (map-pos (:y pos) (:x pos))]
-      (or (== piece (const/EMPTY))
-          (== piece (const/BISCUIT))
-          (== piece (const/PILL))))))
+      (or (= piece const/EMPTY)
+          (= piece const/BISCUIT)
+          (= piece const/PILL)))))
 
  (defn draw-wall 
    [ctx]
@@ -60,12 +56,11 @@
   (map-pos (:y pos) (:x pos)))
 
 (defn set-block 
-  "Todo: nasty! Redo this."
   [pos type]
   (set! const/EMPTY (map-pos (:y pos) (:x pos))))
 
-
 (defn draw-pills [ctx]
+
   (if (> (inc (:pill-size @map-state)) 30) 
     (swap! map-state assoc-in [:pill-size] 0))
   (let [height (:height @map-state)
