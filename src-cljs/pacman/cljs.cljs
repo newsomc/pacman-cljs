@@ -6,17 +6,18 @@
             [pacman.gamemap :as gamemap]
             [pacman.helpers :as helper]
             [pacman.state :as state]
-            [goog.dom :as dom]))
+            [goog.dom :as dom]
+            [clojure.browser.repl :as repl]))
 
-;;------------------------------------------------------------------------------------------ 
 ;; App
+;; ------------------------------------------------------------------------------------------------------
 
 (defn draw-score 
   [text position]
   (let [ctx (:ctx @state/game-state)]
     (set! (. ctx  -fillStyle) "#FFFFFF")
     (set! (. ctx -font) "12px BDCartoonShoutRegular")
-    (.fillText ctx text (* 10 (:block-size @state/game-state)) (* 10 (:block-size @state/game-state)))))
+    (.fillText ctx text (* 10 (:block-size @gamemap/map-state)) (* 10 (:block-size @gamemap/map-state)))))
 
 (defn dialog [text ctx]
   (set! (. ctx  -fillStyle) "#FFFF00")
@@ -27,45 +28,41 @@
         x (/ (- (* map-width (:block-size @gamemap/map-state)) dialog-width) 2)]
     (.fillText ctx text x (+ (* map-height 10) 8))))
 
-(defn set-state [n-state]
-  (swap! state/game-state assoc-in [:state] n-state)
-  (swap! state/game-state assoc-in [:state-changed] true))
-
-(defn sound-disabled []
-  (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" true))
-
 (defn start-level []
   (user/reset-position)
-  (ghost/reset-ghost-state! (:ghosts @state/game-state))
-
+  (ghost/reset-state!)
   ;(audio/play "start")
-  ;(swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
-  ;(set-state (:countdown const/game-const))
-)
-
-(helper/console-log (:ghosts @state/game-state))
+  (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
+  (helper/set-state (:countdown const/game-const)))
 
 (defn start-new-game []
-  (set-state (:const const/game-const))
+  (helper/set-state (:const const/game-const))
   (swap! state/game-state assoc-in [:level] 1)
   (user/reset)
   (gamemap/reset)
   (gamemap/draw (:ctx @state/game-state))
-  (start-level)
-)
+  (start-level))
+
+(defn sound-disabled? []
+  (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" true))
 
 (defn key-down [e]
-  ;(helper/console-log (= (.-keyCode e) (:N (:keys @const/KEY))))
   (cond 
    (= (.-keyCode e) (:N (:keys @const/KEY))) (start-new-game)
+   (= (.-keyCode e) (:S (:keys @const/KEY))) (do (audio/disable-sound)   
+                                                 (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false))
+   (and (= (.-keyCode e) (:P (:keys @const/KEY))) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
+                                                                                                                (gamemap/draw (:ctx @state/game-state)) 
+                                                                                                                (helper/set-state (:stored @state/game-state)))
+   (= (.-keyCode e) (:P (:keys @const/KEY))) (do (swap! state/game-state assoc-in [:stored] (:state @state/game-state))
+                                                 (helper/set-state (:pause const/game-const))
+                                                 ;(audio/pause)
+                                                 (gamemap/draw (:ctx @state/game-state))
+                                                 (dialog "Paused" (:ctx @state/game-state)))
 
-   ;; (= (.-keyCode e) (:S @const/KEY))(do (audio/disable-sound)   
-   ;;                                     (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false))
-   ;; (and (= (.-keyCode e) (:P (:keys @const/KEY))) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
-   ;;                                                                                                             (gamemap/draw (:ctx @state/game-state)) 
-   ;;                                                                                                             (set-state (:stored @state/game-state)))
-   ;; (= (.-keyCode e) (:P (:keys @const/KEY))) (user/keydown e))
-))
+   (not= (:state @state/game-state) (:pause const/game-const)) (user/key-down e)
+
+   :else true))
 
 (defn lose-life [])
 
@@ -98,7 +95,8 @@
                 false)
       (.fill ctx))
 
-    (set! (. ctx -fillStyle) (if (sound-disabled) "#00FF00" "#FF0000"))
+    ;; TODO: think about how to implement sound-disabled ...
+    (set! (. ctx -fillStyle) (if (sound-disabled?) "#00FF00" "#FF0000"))
     (set! (. ctx -font) "bold 16px sans-serif")
     (.fillText ctx "s" 10 text-base)
     
@@ -108,49 +106,48 @@
     (.fillText ctx (str "Score: " (user/the-score)) 30 text-base)
     (.fillText ctx (str "Level: " (:level @state/game-state)) 260 text-base)))
 
-(defn redraw-block [pos ctx]
-  (gamemap/draw-block (Math/floor (/ (:y pos) 10)) (Math/floor (/ :x pos) 10) ctx)
-  (gamemap/draw-block (Math/ciel (/ (:y pos) 10)) (Math/ceil (/ :x pos) 10) ctx))
+(defn redraw-block [pos]
+  (let [ctx (:ctx @state/game-state)]
+    (gamemap/draw-block (Math/floor (/ (:y pos) 10)) (Math/floor (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)
+    (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
 
-(defn main-draw 
-  "Warning...This probably doesn't work! i.e. AT ALL!"
-  []
-  ;; loop 1
-  (doseq [ghost (:ghosts @state/game-state)]
-      (swap! state/game-state update-in [:ghost-pos] conj ghost)
-      (ghost/move (:ctx @state/game-state)))
+(defn main-draw []
+  (let [u (user/move!)] (redraw-block (:old (:curr-pos @user/user-state)))) 
+  (user/draw)
+  (helper/console-log (str "curr USER POS: " (:position @user/user-state)))
+  (redraw-block (:position @user/user-state))
+
+
+
+
+  ;(helper/console-log (:old (:curr-pos @user/user-state))) 
+
+  ;(redraw-block (:old (:curr-pos @user/user-state)))
+  ;(ghost/move!)
+  ;(helper/console-log (:old-pos (:ghosts @state/game-state)))
+  ;(helper/console-log (:old (:curr-pos @user/user-state)))
+
+  ;(redraw-block (:old-pos (:ghosts @state/game-state)))
   
-  (swap! state/game-state update-in [:user] (user/move (:ctx @state/game-state)))
+  #_(doseq [g (:ghosts @state/game-state)]
+    (ghost/draw g))
 
-  ;; loop 2
-  (doseq [ghost (:ghosts @state/game-state)]
-    (redraw-block (:old (:ghost-pos @state/game-state)) (:ctx @state/game-state)))
-  
-  ;; this may not be the right param for redraw-block
-  (redraw-block (:old (:user @state/game-state)) (:ctx @state/game-state))
 
-  ;; loop 3
-  (doseq [ghost (:ghosts @state/game-state)]
-    (ghost/draw ghost (:ctx @state/game-state)))
-
-  (user/draw (:user @state/game-state))
-  
-  (swap! state/game-state update-in [:user-pos] conj ["new"])
 
   ;; loop 4
-  (doseq [ghost (:ghosts @state/game-state)]
+  #_(doseq [ghost (:ghosts @state/game-state)]
     (if (collided (:user-pos @state/game-state) (let ([pos] ())))
       (if (ghost/is-vulnerable? ghost)
-        (audio/play "eatghost")
+                                        ;(audio/play "eatghost")
         (ghost/eat ghost)
         (swap! state/game-state update-in [:eaten-count] (fnil inc 0))
         (swap! state/game-state assoc-in [:n-score] (* (:eaten-count @state/game-state) 50))
         (user/add-score (:n-score @state/game-state))
-        (set-state (:eaten-pause const/game-const))
+        (helper/set-state (:eaten-pause const/game-const))
         (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state)))
       (if (ghost/is-dangerous? ghost)
-        (audio/play "die")
-        (set-state (:dying const/game-const))
+                                        ;(audio/play "die")
+        (helper/set-state (:dying const/game-const))
         (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))))))
 
 (defn start-game []
@@ -160,54 +157,54 @@
 
 (defn game-playing []
   (gamemap/draw (:ctx @state/game-state)) 
-  (set-state (:playing const/game-const)))
+  (helper/set-state (:playing const/game-const)))
 
-(defn game-dying 
-  "Uhhh. Make sure this actually frigging works."
-  []
-  (if (> (- (:tick (@state/game-state)) (:timer-start @state/game-state)) (/ (const/FPS) 3)) 
-    (lose-life)
+(defn game-dying []
+  (if (> (- (:tick (@state/game-state)) (:timer-start @state/game-state)) (/ (const/FPS) 3))     (lose-life)
     (do
-      (redraw-block (:user-pos @state/game-state) (:ctx @state/game-state))
+      (redraw-block (:user-pos @state/game-state))
       (doseq [ghost (:ghosts @state/game-state)]
-        (redraw-block (:old ghost) (:cts @state/game-state))
+        (redraw-block (:old ghost))
         (swap! @state/game-state update-in [:ghost-pos] conj (ghost))
         (ghost/draw ghost (:ctx @state/game-state)))
       (user/draw-dead (:ctx @state/game-state) (/ (:tick @state/game-state) (* const/FPS 2))))))
 
 (defn game-countdown []
-  (let [diff (Math/floor (/ (- (:timer-start @state/game-state) (:tick @state/game-state)) (const/FPS)))]
-    (if (== diff 0)
+  (let [diff (+ 5 (.floor js/Math (/ (- (:timer-start @state/game-state) (:tick @state/game-state)) const/FPS)))]
+    (if (= diff 0)
       (do 
         (gamemap/draw (:ctx @state/game-state))
-        (set-state (:playing const/game-const)))
+        (swap! state/game-state assoc-in [:state] (:playing const/game-const)))
       (if-not (= diff (:last-time @state/game-state))
         (do
           (swap! state/game-state assoc-in [:last-time] diff)
           (gamemap/draw (:ctx @state/game-state))
-          (dialog (str "Starting in: " diff) (:ctx @state/game-stae)))))))
+          (dialog (str "Starting in: " diff) (:ctx @state/game-state)))))))
 
 (defn main-loop []
-  (if (not= (:state @state/game-state) (:pause const/game-const)) 
+  (if-not (= (:state @state/game-state) (:pause const/game-const)) 
     (swap! state/game-state update-in [:tick] (fnil inc 0)))
 
-  (gamemap/draw-pills (:ctx @state/game-state))
+  (let [state (:state @state/game-state)
+        ctx (:ctx @state/game-state)]
 
-  (let [state (:state @state/game-state)]
+    (gamemap/draw-pills ctx)
+
     (cond 
      (= state (:playing const/game-const)) (main-draw)
      (and (= state (:waiting const/game-const)) (:state-changed @state/game-state)) (start-game) 
-     (and (= state (:eaten-pause const/game-const)) (> (- (:tick @state/game-state) (:timeser-start @state/game-state)) (* const/FPS 2))) (game-playing)       
-     (= (:state @state/game-state) (:dying (const/game-const))) (game-dying)
+     (and (= state (:eaten-pause const/game-const)) 
+          (> (- (:tick @state/game-state) (:timer-start @state/game-state)) (* const/FPS 2))) (game-playing)       
+     (= (:state @state/game-state) (:dying const/game-const)) (game-dying)
      (= (:state @state/game-state) (:countdown const/game-const)) (game-countdown)))
   (draw-footer (:ctx @state/game-state)))
 
 (defn eaten-pill []
-  (audio/play "eatpill")
-  (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
-  (swap! state/game-state assoc-in [:eaten-count] 0)
-  (doseq [ghost (:ghosts @state/game-state)]
-    (ghost/make-eatable ghost)))
+    (audio/play "eatpill")
+    (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
+    (swap! state/game-state assoc-in [:eaten-count] 0)
+    (doseq [ghost (:ghosts @state/game-state)]
+      (ghost/make-eatable ghost)))
 
 (defn completed-level [])
 
@@ -220,7 +217,7 @@
   (dialog "Press N to Start" (:ctx @state/game-state))
   (.addEventListener js/document "keydown" key-down true)
   (.addEventListener js/document "keypress" key-press true)
-  (swap! state/game-state assoc-in [:timer] (.setInterval js/window (main-loop) (/ 1000 const/FPS))))
+  (helper/set-interval (/ 1000 const/FPS) #(main-loop)))
 
 (defn load [audio-files callback]
   (if (= (count audio-files) 0) 
@@ -237,7 +234,6 @@
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
-
     (swap! state/game-state assoc-in [:ctx] (.getContext canvas "2d"))
     (swap! gamemap/map-state assoc-in [:block-size] block-size)
     (swap! state/game-state update-in [:audio] conj {:sound-disabled true})
