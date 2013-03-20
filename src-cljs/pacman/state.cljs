@@ -31,7 +31,6 @@
                   :level 0
                   :tick 0
                   :ghost-pos []
-                  :user-pos []
                   :state-changed true
                   :timer-start nil
                   :last-time 0
