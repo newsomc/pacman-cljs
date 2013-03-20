@@ -112,21 +112,16 @@
     (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
 
 (defn main-draw []
-  (let [u (user/move!)] (redraw-block (:old (:curr-pos @user/user-state)))) 
+  (user/move!)
   (user/draw)
-  (helper/console-log (str "curr USER POS: " (:position @user/user-state)))
-  (redraw-block (:position @user/user-state))
-
-
-
+  ;;(helper/console-log (str "curr USER POS: " (:position @user/user-state)))
+  (redraw-block (:new (:curr-pos @user/user-state)))
 
   ;(helper/console-log (:old (:curr-pos @user/user-state))) 
-
   ;(redraw-block (:old (:curr-pos @user/user-state)))
   ;(ghost/move!)
   ;(helper/console-log (:old-pos (:ghosts @state/game-state)))
   ;(helper/console-log (:old (:curr-pos @user/user-state)))
-
   ;(redraw-block (:old-pos (:ghosts @state/game-state)))
   
   #_(doseq [g (:ghosts @state/game-state)]
@@ -136,7 +131,7 @@
 
   ;; loop 4
   #_(doseq [ghost (:ghosts @state/game-state)]
-    (if (collided (:user-pos @state/game-state) (let ([pos] ())))
+    (if (collided (:position @user/user-state) (let ([pos] ())))
       (if (ghost/is-vulnerable? ghost)
                                         ;(audio/play "eatghost")
         (ghost/eat ghost)
@@ -160,9 +155,10 @@
   (helper/set-state (:playing const/game-const)))
 
 (defn game-dying []
-  (if (> (- (:tick (@state/game-state)) (:timer-start @state/game-state)) (/ (const/FPS) 3))     (lose-life)
+  (if (> (- (:tick (@state/game-state)) (:timer-start @state/game-state)) (/ (const/FPS) 3))     
+    (lose-life)
     (do
-      (redraw-block (:user-pos @state/game-state))
+      (redraw-block (:position @user/user-state))
       (doseq [ghost (:ghosts @state/game-state)]
         (redraw-block (:old ghost))
         (swap! @state/game-state update-in [:ghost-pos] conj (ghost))
@@ -234,6 +230,7 @@
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
+
     (swap! state/game-state assoc-in [:ctx] (.getContext canvas "2d"))
     (swap! gamemap/map-state assoc-in [:block-size] block-size)
     (swap! state/game-state update-in [:audio] conj {:sound-disabled true})
