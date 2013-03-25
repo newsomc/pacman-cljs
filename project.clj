@@ -12,7 +12,8 @@
   :profiles
   {:dev {:dependencies [[ring-mock "0.1.3"]]}}
   :cljsbuild
-  {:builds
+  {:repl-listen-port 9000
+   :builds
    [{:builds nil,
      :source-path "src-cljs/pacman",
      :compiler
