@@ -9,6 +9,7 @@
             [goog.dom :as dom]
             [clojure.browser.repl :as repl]))
 
+(repl/connect "http://localhost:9000/repl")
 ;; App
 ;; ------------------------------------------------------------------------------------------------------
 
@@ -112,22 +113,13 @@
     (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
 
 (defn main-draw []
-  (user/move!)
-  (user/draw)
-  ;;(helper/console-log (str "curr USER POS: " (:position @user/user-state)))
-  (redraw-block (:new (:curr-pos @user/user-state)))
 
-  ;(helper/console-log (:old (:curr-pos @user/user-state))) 
-  ;(redraw-block (:old (:curr-pos @user/user-state)))
-  ;(ghost/move!)
-  ;(helper/console-log (:old-pos (:ghosts @state/game-state)))
-  ;(helper/console-log (:old (:curr-pos @user/user-state)))
-  ;(redraw-block (:old-pos (:ghosts @state/game-state)))
+  (user/move! @user/user-state)
+  (redraw-block (:old-pos @user/user-state))
+  (user/draw)
   
   #_(doseq [g (:ghosts @state/game-state)]
     (ghost/draw g))
-
-
 
   ;; loop 4
   #_(doseq [ghost (:ghosts @state/game-state)]
@@ -166,7 +158,8 @@
       (user/draw-dead (:ctx @state/game-state) (/ (:tick @state/game-state) (* const/FPS 2))))))
 
 (defn game-countdown []
-  (let [diff (+ 5 (.floor js/Math (/ (- (:timer-start @state/game-state) (:tick @state/game-state)) const/FPS)))]
+  (let [diff (+ 1 (.floor js/Math (/ (- (:timer-start @state/game-state) (:tick @state/game-state)) const/FPS)))
+        ]
     (if (= diff 0)
       (do 
         (gamemap/draw (:ctx @state/game-state))

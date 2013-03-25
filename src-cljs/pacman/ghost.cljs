@@ -45,9 +45,12 @@
                 [(:up const/game-const) (:down const/game-const)]
                 [(:left const/game-const) (:right const/game-const)])]))
 
+
+
 ;; =====================================================
 ;; Reset ghost state
 ;; =====================================================
+
 (defn ghost-init-state [ghost] 
   {:eaten nil, 
    :eatable nil, 

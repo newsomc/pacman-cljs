@@ -7,10 +7,11 @@
                         :playing []}))
 
 (defn progress [event name callback]
-  (and (== ))
-)
+  (if (= (.-loaded event) (.-total event)) 
+    (callback)))
 
 (defn load [f-name path cb]
+  
   (swap! audio-state assoc-in [:files] {:name f-name :elem (.createElement js/document "audio")})
   (swap! audio-state assoc-in [:progress-events] {f-name (fn [event] (progress event f-name cb))})
   (let [{fname :name elem :elem} (:files @audio-state)]
@@ -20,18 +21,17 @@
     (.setAttribute elem "src" path)
     (.pause elem)))
 
-(defn disable-sound []
-  (doseq [track (:playing @audio-state)]
-;    (pause (playing (track (:files @audio-state))))
-))
+#_(defn disable-sound []
+  (doseq [track (:playing @audio-state)]))
 
 (defn ended [name])
 
-(defn play 
-  "Implement me!"
-  [name]
-  (helper/console-log name))
+(defn play [name]
+  (.alert js/window "woah!"))
 
 (defn pause [] (println "hi"))
 
 (defn resume [])
+
+
+

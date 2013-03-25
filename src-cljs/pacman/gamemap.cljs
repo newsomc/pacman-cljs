@@ -24,7 +24,7 @@
 
 (defn is-floor-space? 
   [pos]
-  (if-not (within-bounds (:y pos) (:x pos))
+  (if (within-bounds (:y pos) (:x pos))
     (let [piece (map-pos (:y pos) (:x pos))]
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
