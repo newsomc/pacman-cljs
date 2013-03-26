@@ -62,7 +62,6 @@
                                                  (dialog "Paused" (:ctx @state/game-state)))
 
    (not= (:state @state/game-state) (:pause const/game-const)) (user/key-down e)
-
    :else true))
 
 (defn lose-life [])
@@ -113,9 +112,8 @@
     (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
 
 (defn main-draw []
-
   (user/move! @user/user-state)
-  (redraw-block (:old-pos @user/user-state))
+  (redraw-block (:position @user/user-state))
   (user/draw)
   
   #_(doseq [g (:ghosts @state/game-state)]

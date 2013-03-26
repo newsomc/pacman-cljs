@@ -15,16 +15,16 @@
           :due nil
           :lives 0
           :score 5
-          :npos {:x 90 :y 120}
+          :npos nil
           :next-whole nil
           :block nil
-          :curr-pos nil
-          :old-pos nil
-          :new-pos nil}))
+          :old-pos nil}))
 
 ;; ------------------------------------------------------------------------------------------------
 ;; Direction key/map
 ;; ------------------------------------------------------------------------------------------------
+
+;; Massive bug here! Up and down are switched for some reason. Look into this. 
 
 (def key-map {(:ARROW_LEFT  (:keys @const/KEY)) (:left const/game-const)
               (:ARROW_UP    (:keys @const/KEY)) (:down const/game-const)
@@ -88,7 +88,6 @@
   (if-not (and (= (.-keyCode e) nil) (= (.-keyCode e) "undefined"))
     (do
       (let [key-code (.-keyCode e)]
-        (helper/console-log (str "Keys: " (get key-map key-code)))
         (swap! user-state assoc-in [:due] (get key-map key-code))
         (.preventDefault e)
         (.stopPropagation e)))))
@@ -195,13 +194,10 @@
 
 (defn direction-allowable? 
   [due dir pos npos]
+  (helper/console-log (str "Log: " due " " dir " " pos " " npos))
   (and (or (is-on-same-plane? due dir) 
            (on-grid-square? pos)) 
        (gamemap/is-floor-space? (next-pos npos due))))
-
-(defn new-direction? 
-  [dir]
-  (= (:due @user-state) dir))
 
 (defn pacman-moving? 
   [due dir pos npos]
@@ -213,16 +209,24 @@
   []
   (:due @user-state))
 
+(defn new-direction? 
+  [dir]
+  (= (get-due) dir))
+
 ;; ------------------------------------------------------------------------------------------------
 ;; Move pacman - Update functions
-;; Todo: separate keyboard input from player input.
-;; 
 ;; ------------------------------------------------------------------------------------------------
+
+(defn facing-wall? [pos npos dir]
+  (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))))
 
 (defn get-new-direction 
   [due dir pos npos]
-  (cond (and (direction-allowable? due dir pos npos) (pacman-moving? due dir pos npos)) due
-        (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))) (:none const/game-const)))
+  (if (facing-wall? pos npos dir)
+    (:none const/game-const)
+    due
+    ;(and (direction-allowable? due dir pos npos) (pacman-moving? due dir pos npos)) due
+    ))
 
 (defn get-new-npos 
   [due dir pos npos]
@@ -234,14 +238,19 @@
 
 ;(defn update-eaten [])
 
+(defn get-old-pos [dir pos]
+  (cond 
+    (= dir (:none const/game-const)) pos))
+
 (defn refresh-user-data 
   [user] 
+  (helper/console-log (get-new-direction (:due user) (:direction user) (:position user) (:npos user)))
   {:direction (get-new-direction (:due user) (:direction user) (:position user) (:npos user))
    :position (:npos user)
    :npos (get-new-npos (:due user) (:direction user) (:position user) (:npos user))
    :due (get-due)
-   :old-pos (:position user)
-   ;:block (update-eaten user)
+   :old-pos (get-old-pos (:direction user) (:position user))
+   ;:block (gamemap/block (:next-whole user))
    ;:next-whole (next-pos (:position user) (:direction user))
    ;:block (gamemap/block (:next-whole user))
    ;:new (get-new user)
@@ -249,6 +258,7 @@
    })
 
 (defn move! [user]
+  ;(helper/console-log user)
   (reset! user-state (merge user (refresh-user-data user))))
 
 (defn draw []
