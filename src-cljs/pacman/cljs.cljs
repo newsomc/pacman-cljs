@@ -1,7 +1,6 @@
 (ns pacman.core
   (:require [pacman.constants :as const]
             [pacman.ghost :as ghost]
-            [pacman.user :as user]
             [pacman.audio :as audio]
             [pacman.gamemap :as gamemap]
             [pacman.helpers :as helper]
@@ -18,7 +17,7 @@
   (let [ctx (:ctx @state/game-state)]
     (set! (. ctx  -fillStyle) "#FFFFFF")
     (set! (. ctx -font) "12px BDCartoonShoutRegular")
-    (.fillText ctx text (* 10 (:block-size @gamemap/map-state)) (* 10 (:block-size @gamemap/map-state)))))
+    (.fillText ctx text (* 10 (:block-size gamemap/map-state)) (* 10 (:block-size gamemap/map-state)))))
 
 (defn dialog [text ctx]
   (set! (. ctx  -fillStyle) "#FFFF00")
@@ -26,43 +25,42 @@
   (let [dialog-width (.-width (.measureText ctx text))
         map-width (alength (aget const/game-map 0))
         map-height (alength const/game-map)
-        x (/ (- (* map-width (:block-size @gamemap/map-state)) dialog-width) 2)]
+        x (/ (- (* map-width (:block-size gamemap/map-state)) dialog-width) 2)]
     (.fillText ctx text x (+ (* map-height 10) 8))))
 
-(defn start-level []
-  ;(user/reset-position)
-  (ghost/reset-state!)
-  ;(audio/play "start")
-  (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
-  (helper/set-state (:countdown const/game-const)))
+(defn start-level [state]
+  (-> state
+    (assoc :timer-start (:tick @state/game-state))
+    (assoc :state (:countdown const/game-const))))
 
-(defn start-new-game []
-  (helper/set-state (:const const/game-const))
-  (swap! state/game-state assoc-in [:level] 1)
-  ;(user/reset)
-  (gamemap/reset)
-  (gamemap/draw (:ctx @state/game-state))
-  (start-level))
+(defn start-new-game [state]
+  (-> state
+    (assoc :state (:const const/game-const))
+    (assoc :level 1)
+    (start-level)))
 
 (defn sound-disabled? []
   (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" true))
 
-(defn key-down [e]
-  (cond 
-   (= (.-keyCode e) (:N const/KEYS)) (start-new-game)
-   (= (.-keyCode e) (:S const/KEYS)) (do (audio/disable-sound)   
-                                                 (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false))
-   (and (= (.-keyCode e) (:P const/KEYS)) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
-                                                                                                                (gamemap/draw (:ctx @state/game-state)) 
-                                                                                                                (helper/set-state (:stored @state/game-state)))
-   (= (.-keyCode e) (:P const/KEYS)) (do (swap! state/game-state assoc-in [:stored] (:state @state/game-state))
-                                                 (helper/set-state (:pause const/game-const))
-                                                 ;(audio/pause)
-                                                 (gamemap/draw (:ctx @state/game-state))
-                                                 (dialog "Paused" (:ctx @state/game-state)))
-
-   (not= (:state @state/game-state) (:pause const/game-const)) (user/key-down e)
-   :else true))
+(defn key-down [state e]
+  (let [kc (.-keyCode e)]
+    (condp = kc 
+      (:N const/KEYS) (start-new-game state)
+      (:S const/KEYS) (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false)
+      (:P const/KEYS) (-> state
+                        (draw) 
+                        (assoc :satet (:stored state)))
+      (:P const/KEYS) (-> state
+                        (assoc :stored (:state state))
+                        (assoc :state (:pause const/game-const))
+                        (draw)
+                        (dialog "Paused" (:ctx @state/game-state)))
+      :else (if (and kc (not= (:state state) (:pause const/game-const)))
+              (do
+                (.preventDefault e)
+                (.stopPropagation e)
+                (assoc-in state [:user :due] (get key-map key-code)))
+              state))))
 
 (defn lose-life [])
 
@@ -71,7 +69,7 @@
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
 (defn draw-footer [ctx]
-  (let [block-size (:block-size @gamemap/map-state)
+  (let [block-size (:block-size gamemap/map-state)
         map-width (alength (aget const/game-map 0))
         map-height (alength const/game-map)
         top-left (* map-height block-size)
@@ -108,8 +106,8 @@
 
 (defn redraw-block [pos]
   (let [ctx (:ctx @state/game-state)]
-    (gamemap/draw-block (Math/floor (/ (:y pos) 10)) (Math/floor (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)
-    (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
+    (gamemap/draw-block (Math/floor (/ (:y pos) 10)) (Math/floor (/ (:x pos) 10)) (:block-size gamemap/map-state) ctx)
+    (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size gamemap/map-state) ctx)))
 
 (defn main-draw []
   

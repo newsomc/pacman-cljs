@@ -3,11 +3,12 @@
             [pacman.constants :as const]
             [pacman.state :as state]))
 
-(def map-state (atom {:height nil
-                      :width nil
-                      :pill-size 0 
-                      :block-size (.-offsetWidth (helper/get-element-by-id "pacman"))
-                      :map const/game-map}))
+(def map-state
+  {:height nil
+   :width nil
+   :pill-size 0 
+   :block-size (.-offsetWidth (helper/get-element-by-id "pacman"))
+   :map const/game-map})
 
 (defn map-pos 
   [x y]
@@ -16,7 +17,7 @@
 
 (defn within-bounds? 
   [x y]
-  (and (>= y 0) (< y (:height @map-state)) (>= x 0) (< x (:width @map-state))))
+  (and (>= y 0) (< y (:height map-state)) (>= x 0) (< x (:width map-state))))
 
 (defn is-wall-space? 
   [pos]
@@ -36,7 +37,7 @@
    (set! (. ctx -strokeStyle) "#0000FF")
    (set! (. ctx -lineWidth) 5)
    (set! (. ctx -lineCap) "round")
-   (letfn [(*block-size [n] (* n (:block-size @map-state)))]
+   (letfn [(*block-size [n] (* n (:block-size map-state)))]
      (doseq [line const/WALLS]
        (.beginPath ctx)
        (doseq [point line]
@@ -61,11 +62,11 @@
 
 (defn draw-pills [ctx]
 
-  (if (> (inc (:pill-size @map-state)) 30) 
+  (if (> (inc (:pill-size map-state)) 30) 
     (swap! map-state assoc-in [:pill-size] 0))
-  (let [height (:height @map-state)
-        width (:width @map-state)
-        block-size (:block-size @map-state)]
+  (let [height (:height map-state)
+        width (:width map-state)
+        block-size (:block-size map-state)]
     (doseq [i (range height)]
       (doseq [j (range width)]
         (if (= (map-pos i j) const/PILL)
@@ -79,7 +80,7 @@
             (set! (. ctx -fillStyle) "#FFF")
             (.arc ctx (+ (* j block-size) (/ block-size 2))
                       (+ (* i block-size) (/ block-size 2))
-                      (Math/abs (- 5 (/ (:pill-size @map-state) 3)))
+                      (Math/abs (- 5 (/ (:pill-size map-state) 3)))
                       0
                       (* (.-PI js/Math) 2)
                       false)
@@ -112,9 +113,9 @@
   "Main draw function for game board."
   [ctx]
   (set! (. ctx  -fillStyle) "#000")
-  (let [width (:width @map-state)
-        height (:height @map-state)
-        size (:block-size @map-state)]
+  (let [width (:width map-state)
+        height (:height map-state)
+        size (:block-size map-state)]
     (.fillRect ctx 0 0 (* width size) (* height size))
     (draw-wall ctx)
     (doseq [i (range height)] 
