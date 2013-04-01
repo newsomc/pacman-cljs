@@ -8,14 +8,14 @@
 ;; State
 ;; ------------------------------------------------------------------------------------------------
 
-(def user-state 
+(def user-state
   (atom { :position {:x 90 :y 120}
           :direction (:left const/game-const)
           :eaten 0
-          :due nil
+          :due (:left const/game-const)
           :lives 0
           :score 5
-          :npos nil
+          :npos {:x 90 :y 120}
           :next-whole nil
           :block nil
           :old-pos nil}))
@@ -25,11 +25,10 @@
 ;; ------------------------------------------------------------------------------------------------
 
 ;; Massive bug here! Up and down are switched for some reason. Look into this. 
-
 (def key-map {(:ARROW_LEFT  (:keys @const/KEY)) (:left const/game-const)
-              (:ARROW_UP    (:keys @const/KEY)) (:down const/game-const)
+              (:ARROW_UP    (:keys @const/KEY)) (:up const/game-const)
               (:ARROW_RIGHT (:keys @const/KEY)) (:right const/game-const)
-              (:ARROW_DOWN  (:keys @const/KEY)) (:up const/game-const)})
+              (:ARROW_DOWN  (:keys @const/KEY)) (:down const/game-const)})
 
 ;; ------------------------------------------------------------------------------------------------
 ;; Score helpers
@@ -37,9 +36,10 @@
 
 (defn add-score 
   [n-score]
-  (swap! user-state update-in [:score] (fnil inc n-score))
+  ;(swap! user-state update-in [:score] (fnil inc n-score))
   (if (and (>= (:score @user-state) 10000) (< (- (:score @user-state) n-score) 10000))
-    (swap! user-state update-in [:lives] (fnil inc 1))))
+    ;(swap! user-state update-in [:lives] (fnil inc 1))
+    ))
 
 (defn the-score 
   []
@@ -47,7 +47,8 @@
 
 (defn lose-life 
   []
-   (swap! user-state update-in [:lives] (fnil dec 1)))
+   ;(swap! user-state update-in [:lives] (fnil dec 1))
+)
 
 (defn get-lives 
   []
@@ -59,20 +60,24 @@
 
 (defn reset-position 
   []
-  (swap! user-state assoc-in [:position] {:x 90 :y 120})
-  (swap! user-state assoc-in [:direction] (:left const/game-const))
-  (swap! user-state assoc-in [:due] (:left const/game-const)))
+
+;  (swap! user-state assoc-in [:position] {:x 90 :y 120})
+;  (swap! user-state assoc-in [:direction] (:left const/game-const))
+;  (swap! user-state assoc-in [:due] (:left const/game-const))
+  )
 
 (defn new-level 
   []
   (reset-position)
-  (swap! user-state assoc-in [:eaten] 0))
+  ;(swap! user-state assoc-in [:eaten] 0)
+)
 
 (defn init-user 
   []
-  (swap! user-state assoc-in [:score] 0)
-  (swap! user-state assoc-in [:lives] 3)
-  (new-level))
+  ;(swap! user-state assoc-in [:score] 0)
+  ;(swap! user-state assoc-in [:lives] 3)
+  (new-level)
+)
 
 (defn reset 
   []
@@ -93,7 +98,7 @@
         (.stopPropagation e)))))
 
 ;; ------------------------------------------------------------------------------------------------
-;; Keep pacman moving depending on direction.
+;; Keep pacman moving on the correct axis depending on the direction sent in by the user.
 ;; ------------------------------------------------------------------------------------------------
 
 (defn get-new-coord 
@@ -101,8 +106,8 @@
   (let [x (or (and (= dir (:left const/game-const)) -2)
               (and (= dir (:right const/game-const)) 2) 
               0)
-        y (or (and (= dir (:down const/game-const)) -2)
-              (and (= dir (:up const/game-const)) 2) 
+        y (or (and (= dir (:down const/game-const)) 2)
+              (and (= dir (:up const/game-const)) -2) 
               0)]
     {:x (+ (:x pos) x)
      :y (+ (:y pos) y)}))
@@ -145,7 +150,7 @@
 
 (defn completed-level 
   []
-  (swap! state/game-state update-in [:level] (fnil inc 1))
+  ;(swap! state/game-state update-in [:level] (fnil inc 1))
   (gamemap/reset)
   (new-level)
   (pacman.core/start-level))
@@ -153,7 +158,7 @@
 (defn eaten-pill 
   []
   (audio/play "eatpill")
-  (swap! state/game-state assoc-in [:timer] (:tick @state/game-state))
+  ;(swap! state/game-state assoc-in [:timer] (:tick @state/game-state))
   (ghost/make-eatable!))
 
 ;; ------------------------------------------------------------------------------------------------
@@ -164,8 +169,8 @@
   [dir pos]
   (cond (and (= dir (:right const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
         (and (= dir (:down  const/game-const)) (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
-        (and (= dir (:up const/game-const)) (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
-        (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
+        (and (= dir (:up const/game-const)) (< (mod (:y pos) 10) 5))    {:start 1.25 :end 1.75 :direction true}     
+        (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5))  {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
 (defn draw-dead 
@@ -194,13 +199,6 @@
 
 (defn direction-allowable? 
   [due dir pos npos]
-  (helper/console-log (str "Log: " due " " dir " " pos " " npos))
-  (and (or (is-on-same-plane? due dir) 
-           (on-grid-square? pos)) 
-       (gamemap/is-floor-space? (next-pos npos due))))
-
-(defn pacman-moving? 
-  [due dir pos npos]
   (and (or (is-on-same-plane? due dir) 
            (on-grid-square? pos)) 
     (gamemap/is-floor-space? (next-pos npos due))))
@@ -213,53 +211,50 @@
   [dir]
   (= (get-due) dir))
 
+(defn facing-wall? [pos npos dir]
+  (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))))
+
 ;; ------------------------------------------------------------------------------------------------
 ;; Move pacman - Update functions
 ;; ------------------------------------------------------------------------------------------------
 
-(defn facing-wall? [pos npos dir]
-  (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))))
-
 (defn get-new-direction 
   [due dir pos npos]
-  (if (facing-wall? pos npos dir)
-    (:none const/game-const)
-    due
-    ;(and (direction-allowable? due dir pos npos) (pacman-moving? due dir pos npos)) due
-    ))
-
-(defn get-new-npos 
-  [due dir pos npos]
-  (if-not (new-direction? dir)
-    (cond (pacman-moving? due dir pos npos) nil 
-          (and (= (:y npos) 100) (>= (:x npos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
-          (and (= (:y npos) 100) (<= (:x npos) -12) (= dir (:left const/game-const)))  {:y 100 :x 190}
-      :else (get-new-coord due pos))))
-
-;(defn update-eaten [])
-
-(defn get-old-pos [dir pos]
+  ;; this gets pacman walking... (if-not (= due dir) due dir)
   (cond 
-    (= dir (:none const/game-const)) pos))
+    (facing-wall? pos npos dir) (:none const/game-const) 
+    (and (not= due dir) (direction-allowable? due dir pos npos)) due
+    :else dir))
+
+;(defn update-eaten [])                    
+
+(defn get-new-npos [due dir pos npos]
+  (cond 
+    (and (= (:y npos) 100) (>= (:x npos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
+    (and (= (:y npos) 100) (<= (:x npos) -12) (= dir (:left const/game-const)))  {:y 100 :x 190}
+    (= dir (:none const/game-const)) pos
+    :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
+
+(defn get-old-pos [dir pos npos]
+  (cond 
+    (= dir (:none const/game-const)) pos
+    :else npos))
 
 (defn refresh-user-data 
   [user] 
-  (helper/console-log (get-new-direction (:due user) (:direction user) (:position user) (:npos user)))
-  {:direction (get-new-direction (:due user) (:direction user) (:position user) (:npos user))
+  {:npos (get-new-npos (:due user) (:direction user) (:position user) (:npos user))
    :position (:npos user)
-   :npos (get-new-npos (:due user) (:direction user) (:position user) (:npos user))
+   :old-pos  (:position user)
+   :direction (get-new-direction (:due user) (:direction user) (:position user) (:npos user))
    :due (get-due)
-   :old-pos (get-old-pos (:direction user) (:position user))
-   ;:block (gamemap/block (:next-whole user))
    ;:next-whole (next-pos (:position user) (:direction user))
    ;:block (gamemap/block (:next-whole user))
-   ;:new (get-new user)
-   ;:old (get-old user)
    })
 
-(defn move! [user]
-  ;(helper/console-log user)
-  (reset! user-state (merge user (refresh-user-data user))))
+(defn move [user]
+  (reset! user-state (merge user (refresh-user-data user)))
+  ;; (helper/console-log @user-state)
+  )
 
 (defn draw []
   (let [ctx (:ctx @state/game-state)

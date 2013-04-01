@@ -10,22 +10,23 @@
                       :map const/game-map}))
 
 (defn map-pos 
-  [y x]
-  (aget const/game-map y x))
-
-(defn within-bounds 
   [x y]
-  (and (>= y 0) (< y (:height @map-state)) (>= x =) (< x (:width @map-state))))
+  ;(helper/console-log (aget const/game-map x y))
+  (aget const/game-map x y))
+
+(defn within-bounds? 
+  [x y]
+  (and (>= y 0) (< y (:height @map-state)) (>= x 0) (< x (:width @map-state))))
 
 (defn is-wall-space? 
   [pos]
-  (and (within-bounds (:y pos) (:x pos)) 
+  (and (within-bounds? (:x pos) (:y pos)) 
        (= const/WALL (map-pos (:y pos) (:x pos)))))
 
 (defn is-floor-space? 
   [pos]
-  (if (within-bounds (:y pos) (:x pos))
-    (let [piece (map-pos (:y pos) (:x pos))]
+  (if (within-bounds? (:x pos) (:y pos))
+    (let [piece (map-pos (:x pos) (:y pos))]
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))

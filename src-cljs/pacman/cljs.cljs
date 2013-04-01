@@ -30,7 +30,7 @@
     (.fillText ctx text x (+ (* map-height 10) 8))))
 
 (defn start-level []
-  (user/reset-position)
+  ;(user/reset-position)
   (ghost/reset-state!)
   ;(audio/play "start")
   (swap! state/game-state assoc-in [:timer-start] (:tick @state/game-state))
@@ -39,7 +39,7 @@
 (defn start-new-game []
   (helper/set-state (:const const/game-const))
   (swap! state/game-state assoc-in [:level] 1)
-  (user/reset)
+  ;(user/reset)
   (gamemap/reset)
   (gamemap/draw (:ctx @state/game-state))
   (start-level))
@@ -112,9 +112,13 @@
     (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size @gamemap/map-state) ctx)))
 
 (defn main-draw []
-  (user/move! @user/user-state)
-  (redraw-block (:position @user/user-state))
+  
+  (user/move @user/user-state)
+  (redraw-block (:old-pos @user/user-state))
   (user/draw)
+  ;(swap! user/user-state (user/move @user/user-state))
+  ;
+  ;
   
   #_(doseq [g (:ghosts @state/game-state)]
     (ghost/draw g))
