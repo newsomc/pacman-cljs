@@ -1,4 +1,4 @@
-(ns pacman.core
+(ns pacman.game
   (:require [pacman.constants :as const]
             [pacman.gamemap :as gamemap]
             [pacman.helpers :as helper]
@@ -80,7 +80,7 @@
   (.fillText ctx text (* 10 (:block-size gamemap/map-state)) (* 10 (:block-size gamemap/map-state)))
   state)
 
-(defn draw-footer [state ctx]
+(defn draw-footer [{user :user :as state}]
   (let [block-size (:block-size gamemap/map-state)
         map-width (alength (aget const/game-map 0))
         map-height (alength const/game-map)
@@ -91,7 +91,7 @@
     (.fillRect ctx 0 top-left (* map-width block-size) 30)
     (set! (. ctx -fillStyle) "#FFFF00")
 
-    (doseq [i (range (user/get-lives))]
+    (doseq [i (range (:lives user))]
       (set! (. ctx -fillStyle) "#FFFF00")
       (.beginPath ctx)
       (.moveTo ctx (+ 150 (* 25 i) (/ block-size 2)) 
@@ -105,15 +105,13 @@
                 false)
       (.fill ctx))
 
-    ;; TODO: think about how to implement sound-disabled ...
-    (set! (. ctx -fillStyle) (if (sound-disabled?) "#00FF00" "#FF0000"))
     (set! (. ctx -font) "bold 16px sans-serif")
     (.fillText ctx "s" 10 text-base)
     
     (set! (. ctx -fillStyle) "#FFFF00")
     (set! (. ctx -font) "14px BDCartoonShoutRegular")
     
-    (.fillText ctx (str "Score: " (user/the-score)) 30 text-base)
+    (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
 
@@ -182,7 +180,9 @@
 (def keydown-state (atom nil))
 
 (defn handle-keydown [e]
-  (reset! keydown-state (.-keyCode e)))
+  (reset! keydown-state (.-keyCode e))
+  (.preventDefault e)
+  (.stopPropagation e))
 
 ;; =============================================================================
 ;; Update Functions & Helpers
@@ -204,19 +204,14 @@
       (:N const/KEYS) (start-new-game state)
       (:S const/KEYS) (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false)
       (:P const/KEYS) (-> state
-                        (draw) 
                         (assoc :phase :stored))
       (:P const/KEYS) (-> state
                         (assoc :stored (:phase state))
                         (assoc :phase :pause)
-                        (draw)
                         (dialog "Paused"))
-      :else (if (and kc (not= (:phase state) :pause))
-              (do
-                (.preventDefault e)
-                (.stopPropagation e)
-                (assoc-in state [:user :due] (get key-map kc)))
-              state))))
+      (if (and kc (not= (:phase state) :pause))
+        (assoc-in state [:user :due] (get key-map kc))
+        state))))
 
 (defn lose-life [state])
 
@@ -224,11 +219,58 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
+(defn is-on-same-plane? 
+  [due dir]
+  (or (and (or (= due (:left const/game-const)) (= due (:right const/game-const))) 
+           (or (= dir (:left const/game-const)) (= dir (:right const/game-const))))
+      (and (or (= due (:up const/game-const)) (= due (:down const/game-const))) 
+           (or (= dir (:up const/game-const)) (= dir (:down const/game-const))))))
+
+(defn on-whole-square? 
+  [p]
+  (= (mod p 10) 0))
+
+(defn on-grid-square? 
+  [pos]
+  (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
+
+(defn point-to-coord 
+  [n]
+  (Math/round (/ n 10)))
+
+(defn next-square 
+  [n dir]
+  (let [rem (mod n 10)]
+    (cond (= rem 0) n
+          (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ n (- 10 rem))
+          :else (- n rem))))
+
+(defn next-pos 
+  [pos dir]
+  {:y (point-to-coord (next-square (:y pos) dir))
+   :x (point-to-coord (next-square (:x pos) dir))})
+
+(defn is-mid-square? 
+  [x]
+  (let [rem (mod x 10)]
+    (or (> rem 3) (< rem 7))))
+
 (defn direction-allowable? 
   [due dir pos npos]
   (and (or (is-on-same-plane? due dir) 
            (on-grid-square? pos)) 
     (gamemap/is-floor-space? (next-pos npos due))))
+
+(defn get-new-coord 
+  [dir pos]
+  (let [x (or (and (= dir (:left const/game-const)) -2)
+              (and (= dir (:right const/game-const)) 2) 
+              0)
+        y (or (and (= dir (:down const/game-const)) 2)
+              (and (= dir (:up const/game-const)) -2) 
+              0)]
+    {:x (+ (:x pos) x)
+     :y (+ (:y pos) y)}))
 
 (defn get-new-npos [due dir pos npos]
   (cond 
@@ -259,8 +301,8 @@
   (merge user (refresh-user-data user)))
 
 (defn start-game [state]
-  (dialog "Press N to start a New game")
   (-> state
+    (dialog "Press N to start a New game")
     (assoc :state-changed false)))
 
 (defn game-playing [state]
@@ -282,53 +324,6 @@
         (-> state
           (assoc-in :last-time diff)
           (dialog (str "Starting in: " diff)))))))
-
-(defn get-new-coord 
-  [dir pos]
-  (let [x (or (and (= dir (:left const/game-const)) -2)
-              (and (= dir (:right const/game-const)) 2) 
-              0)
-        y (or (and (= dir (:down const/game-const)) 2)
-              (and (= dir (:up const/game-const)) -2) 
-              0)]
-    {:x (+ (:x pos) x)
-     :y (+ (:y pos) y)}))
-
-(defn on-whole-square? 
-  [p]
-  (= (mod p 10) 0))
-
-(defn point-to-coord 
-  [n]
-  (Math/round (/ n 10)))
-
-(defn next-square 
-  [n dir]
-  (let [rem (mod n 10)]
-    (cond (= rem 0) n
-          (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ n (- 10 rem))
-          :else (- n rem))))
-
-(defn next-pos 
-  [pos dir]
-  {:y (point-to-coord (next-square (:y pos) dir))
-   :x (point-to-coord (next-square (:x pos) dir))})
-
-(defn on-grid-square? 
-  [pos]
-  (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
-
-(defn is-on-same-plane? 
-  [due dir]
-  (or (and (or (= due (:left const/game-const)) (= due (:right const/game-const))) 
-           (or (= dir (:left const/game-const)) (= dir (:right const/game-const))))
-      (and (or (= due (:up const/game-const)) (= due (:down const/game-const))) 
-           (or (= dir (:up const/game-const)) (= dir (:down const/game-const))))))
-
-(defn is-mid-square? 
-  [x]
-  (let [rem (mod x 10)]
-    (or (> rem 3) (< rem 7))))
 
 (defn eaten-pill [state]
   (-> state
@@ -354,12 +349,10 @@
         (= phase :dying) (game-dying state)
         (= phase :countdown) (game-countdown state)))))
 
-(.forEach (js/$ "div") (fn [el] ))
-
 (defn loaded []
   (let [init-state game-state
         interval (/ 1000 const/FPS)]
-    (dialog "Press N to Start")
+    (dialog init-state "Press N to Start")
     (.addEventListener js/document "keydown" handle-keydown true)
     (.setTimeout js/window
       (fn game-loop [s]
@@ -375,7 +368,7 @@
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
-    (dialog "Loading...")
+    (dialog {} "Loading...")
     (loaded)))
 
 ;; Init!

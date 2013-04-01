@@ -2,8 +2,8 @@
   (:require [pacman.helpers :as helper]
             [pacman.constants :as const]))
 
-(defn canvas const/canvas)
-(defn ctx const/ctx)
+(def canvas const/canvas)
+(def ctx const/ctx)
 
 (def map-state
   {:height nil
@@ -21,8 +21,7 @@
   [x y]
   (and (>= y 0) (< y (:height map-state)) (>= x 0) (< x (:width map-state))))
 
-(defn is-wall-space? 
-  [pos]
+(defn is-wall-space? [pos]
   (and (within-bounds? (:x pos) (:y pos)) 
        (= const/WALL (map-pos (:y pos) (:x pos)))))
 
