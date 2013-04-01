@@ -1,5 +1,4 @@
-(ns pacman.helpers
-  (:require [pacman.state :as state]))
+(ns pacman.helpers)
 
 ;;------------------------------------------------------------------------------------------ 
 ;; Logging

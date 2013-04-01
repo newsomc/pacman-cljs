@@ -1,8 +1,7 @@
 (ns pacman.ghost
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
-            [pacman.gamemap :as gamemap]
-            [pacman.state :as state]))
+            [pacman.gamemap :as gamemap]))
 
 (defn add-bounded 
   "Collision detection."
@@ -128,26 +127,26 @@
 
 (defn draw [ghost]
   (let [ctx (:ctx @state/game-state)
-        position (:position ghost)
-        s (:block-size @gamemap/map-state)a
-        eatable (:eatable ghost)
-        top (* (/ (:y position) 10) 2)
-        left (* (/ (:x position) 10) 2)
-        tl (+ left s)
-        base (- (+ top s) 3)
-        inc (/ s 10)
-        high (if (> (mod helper/get-tick 10) 5) 3 -3)
-        low (if (> (mod helper/get-tick 10) 5) -3 3)
-        direction (:direction ghost)
-        f (/ s 12)
-        off {}]
+         position (:position ghost)
+         s (:block-size @gamemap/map-state)
+         eatable (:eatable ghost)
+         top (* (/ (:y position) 10) 2)
+         left (* (/ (:x position) 10) 2)
+         tl (+ left s)
+         base (- (+ top s) 3)
+         inc (/ s 10)
+         high (if (> (mod helper/get-tick 10) 5) 3 -3)
+         low (if (> (mod helper/get-tick 10) 5) -3 3)
+         direction (:direction ghost)
+         f (/ s 12)
+         off {}]
 
     (cond 
-     (and eatable (> (seconds-ago eatable) 8)) (swap! ghost assoc-in [:eatable] nil)
-     (and eatable (> (seconds-ago eatable) 3)) (swap! ghost assoc-in [:eaten] nil))
+      (and eatable (> (seconds-ago eatable) 8)) (swap! ghost assoc-in [:eatable] nil)
+      (and eatable (> (seconds-ago eatable) 3)) (swap! ghost assoc-in [:eaten] nil))
     
     (set! (. ctx -fillStyle) (:specs ghost))
-    ;(set! (. ctx -fillStyle) (get-color ghost))
+                                        ;(set! (. ctx -fillStyle) (get-color ghost))
 
     (.beginPath ctx)
     (.moveTo ctx left base)

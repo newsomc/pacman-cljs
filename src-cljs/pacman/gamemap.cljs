@@ -1,7 +1,6 @@
 (ns pacman.gamemap
   (:require [pacman.helpers :as helper]
-            [pacman.constants :as const]
-            [pacman.state :as state]))
+            [pacman.constants :as const]))
 
 (defn canvas const/canvas)
 (defn ctx const/ctx)

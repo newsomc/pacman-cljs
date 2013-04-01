@@ -1,11 +1,7 @@
 (ns pacman.core
   (:require [pacman.constants :as const]
-            [pacman.ghost :as ghost]
-            [pacman.audio :as audio]
             [pacman.gamemap :as gamemap]
             [pacman.helpers :as helper]
-            [pacman.state :as state]
-            [goog.dom :as dom]
             [clojure.browser.repl :as repl]))
 
 (repl/connect "http://localhost:9000/repl")
@@ -13,8 +9,8 @@
 ;; =============================================================================
 ;; Definitions
 
-(defn canvas const/canvas)
-(defn ctx const/ctx)
+(def canvas const/canvas)
+(def ctx const/ctx)
 
 (defn make-ghost [color] 
   {:get-tick 0, 
@@ -61,7 +57,6 @@
    :ctx nil
    :timer nil
    :map nil
-   :user nil
    :stored nil
    :n-score 0 })
 
@@ -186,7 +181,7 @@
 
 (def keydown-state (atom nil))
 
-(def handle-keydown [e]
+(defn handle-keydown [e]
   (reset! keydown-state (.-keyCode e)))
 
 ;; =============================================================================
@@ -359,6 +354,8 @@
         (= phase :dying) (game-dying state)
         (= phase :countdown) (game-countdown state)))))
 
+(.forEach (js/$ "div") (fn [el] ))
+
 (defn loaded []
   (let [init-state game-state
         interval (/ 1000 const/FPS)]
@@ -368,7 +365,6 @@
       (fn game-loop [s]
         (let [state (or s init-state)
               new-state (driver state)]
-          (reset! state-atom new-state)
           (.setTimeout js/window
             #(game-loop new-state)
             interval)))
