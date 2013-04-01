@@ -25,10 +25,10 @@
 ;; ------------------------------------------------------------------------------------------------
 
 ;; Massive bug here! Up and down are switched for some reason. Look into this. 
-(def key-map {(:ARROW_LEFT  (:keys @const/KEY)) (:left const/game-const)
-              (:ARROW_UP    (:keys @const/KEY)) (:up const/game-const)
-              (:ARROW_RIGHT (:keys @const/KEY)) (:right const/game-const)
-              (:ARROW_DOWN  (:keys @const/KEY)) (:down const/game-const)})
+(def key-map {(:ARROW_LEFT  const/KEYS) (:left const/game-const)
+              (:ARROW_UP    const/KEYS) (:up const/game-const)
+              (:ARROW_RIGHT const/KEYS) (:right const/game-const)
+              (:ARROW_DOWN  const/KEYS) (:down const/game-const)})
 
 ;; ------------------------------------------------------------------------------------------------
 ;; Score helpers

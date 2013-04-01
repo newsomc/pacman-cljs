@@ -49,13 +49,13 @@
 
 (defn key-down [e]
   (cond 
-   (= (.-keyCode e) (:N (:keys @const/KEY))) (start-new-game)
-   (= (.-keyCode e) (:S (:keys @const/KEY))) (do (audio/disable-sound)   
+   (= (.-keyCode e) (:N const/KEYS)) (start-new-game)
+   (= (.-keyCode e) (:S const/KEYS)) (do (audio/disable-sound)   
                                                  (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false))
-   (and (= (.-keyCode e) (:P (:keys @const/KEY))) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
+   (and (= (.-keyCode e) (:P const/KEYS)) (= (:state @state/game-state) (:pause const/game-const))) (do (audio/resume) 
                                                                                                                 (gamemap/draw (:ctx @state/game-state)) 
                                                                                                                 (helper/set-state (:stored @state/game-state)))
-   (= (.-keyCode e) (:P (:keys @const/KEY))) (do (swap! state/game-state assoc-in [:stored] (:state @state/game-state))
+   (= (.-keyCode e) (:P const/KEYS)) (do (swap! state/game-state assoc-in [:stored] (:state @state/game-state))
                                                  (helper/set-state (:pause const/game-const))
                                                  ;(audio/pause)
                                                  (gamemap/draw (:ctx @state/game-state))
