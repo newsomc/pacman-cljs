@@ -129,7 +129,7 @@
 (defn draw [ghost]
   (let [ctx (:ctx @state/game-state)
         position (:position ghost)
-        s (:block-size @gamemap/map-state)
+        s (:block-size @gamemap/map-state)a
         eatable (:eatable ghost)
         top (* (/ (:y position) 10) 2)
         left (* (/ (:x position) 10) 2)

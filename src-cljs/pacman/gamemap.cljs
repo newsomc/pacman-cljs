@@ -3,6 +3,9 @@
             [pacman.constants :as const]
             [pacman.state :as state]))
 
+(defn canvas const/canvas)
+(defn ctx const/ctx)
+
 (def map-state
   {:height nil
    :width nil
@@ -32,8 +35,7 @@
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
 
- (defn draw-wall 
-   [ctx]
+(defn draw-wall [state]
    (set! (. ctx -strokeStyle) "#0000FF")
    (set! (. ctx -lineWidth) 5)
    (set! (. ctx -lineCap) "round")
@@ -56,14 +58,7 @@
 (defn block [pos]
   (map-pos (:y pos) (:x pos)))
 
-(defn set-block 
-  [pos type]
-  (set! const/EMPTY (map-pos (:y pos) (:x pos))))
-
-(defn draw-pills [ctx]
-
-  (if (> (inc (:pill-size map-state)) 30) 
-    (swap! map-state assoc-in [:pill-size] 0))
+(defn draw-pills [state]
   (let [height (:height map-state)
         width (:width map-state)
         block-size (:block-size map-state)]
@@ -85,9 +80,10 @@
                       (* (.-PI js/Math) 2)
                       false)
             (.fill ctx)
-            (.closePath ctx)))))))
+            (.closePath ctx)))))
+    state))
 
-(defn do-draw-biscuit [y x layout block-size ctx]
+(defn do-draw-biscuit [state y x layout block-size]
   (set! (. ctx -fillStyle) "#000")
   (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
   (if (= layout const/BISCUIT)
@@ -96,9 +92,10 @@
       (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
                      (+ (* y block-size) (/ block-size 2.5))
                      (/ block-size 6)
-                     (/ block-size 6)))))
+                     (/ block-size 6))))
+  state)
 
-(defn draw-block [y x block-size ctx] 
+(defn draw-block [state y x block-size] 
   (let [layout (map-pos y x)]
     (if-not (= layout const/PILL) 
       (do   
@@ -107,11 +104,12 @@
                 (= layout const/BLOCK)
                 (= layout const/BISCUIT)) 
           (do-draw-biscuit y x layout block-size ctx))
-        (.closePath ctx)))))
+        (.closePath ctx)))
+    state))
 
 (defn draw 
   "Main draw function for game board."
-  [ctx]
+  [state]
   (set! (. ctx  -fillStyle) "#000")
   (let [width (:width map-state)
         height (:height map-state)
@@ -120,13 +118,10 @@
     (draw-wall ctx)
     (doseq [i (range height)] 
       (doseq [j (range width)]
-        (draw-block i j size ctx)))))
+        (draw-block i j size ctx)))
+    state))
 
-(defn reset []
-  (swap! map-state assoc-in [:map] const/game-map)
-  (swap! map-state assoc-in [:height] (alength const/game-map))
-  (swap! map-state assoc-in [:width] (alength (aget const/game-map 0))))
-
-(reset)
-
-
+;; LATER
+;; (defn reset [] (swap! map-state assoc-in [:map] const/game-map) (swap!
+;;   map-state assoc-in [:height] (alength const/game-map)) (swap!
+;;   map-state assoc-in [:width] (alength (aget const/game-map 0))))

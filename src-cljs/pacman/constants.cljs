@@ -3,18 +3,8 @@
 (defn console-log [var]
   (.log js/console (pr-str var)))
 
-(def game-const 
-  {:none 4
-   :up 3
-   :down 1
-   :left 2
-   :right 11
-   :waiting 5
-   :pause 6
-   :playing 7
-   :countdown 8
-   :eaten-pause 9
-   :dying 10})
+(def canvas (.getElementById js/document "#canvas"))
+(def ctx (.getContext (.getElementById js/document "#canvas") "2d"))
 
 (def FPS 30)
 (def WAITING true)
