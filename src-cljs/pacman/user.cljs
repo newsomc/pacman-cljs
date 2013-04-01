@@ -93,6 +93,7 @@
   (if-not (and (= (.-keyCode e) nil) (= (.-keyCode e) "undefined"))
     (do
       (let [key-code (.-keyCode e)]
+        (.log js/console key-code)
         (swap! user-state assoc-in [:due] (get key-map key-code))
         (.preventDefault e)
         (.stopPropagation e)))))
@@ -194,7 +195,7 @@
         (.fill ctx)))))
 
 ;; ------------------------------------------------------------------------------------------------
-;; Move pacman - Helper Functions
+;; Move pacman - Helpers 
 ;; ------------------------------------------------------------------------------------------------
 
 (defn direction-allowable? 
@@ -214,31 +215,35 @@
 (defn facing-wall? [pos npos dir]
   (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))))
 
-;; ------------------------------------------------------------------------------------------------
-;; Move pacman - Update functions
-;; ------------------------------------------------------------------------------------------------
-
 (defn get-new-direction 
   [due dir pos npos]
-  ;; this gets pacman walking... (if-not (= due dir) due dir)
+  ;; this simply gets pacman walking... (if-not (= due dir) due dir)
+  (.log js/console (pr-str [pos npos due dir (facing-wall? pos npos dir)]))
+  (.log js/console (direction-allowable? due dir pos npos))
   (cond 
     (facing-wall? pos npos dir) (:none const/game-const) 
     (and (not= due dir) (direction-allowable? due dir pos npos)) due
-    :else dir))
+    :else due))
 
 ;(defn update-eaten [])                    
 
+;; ------------------------------------------------------------------------------------------------
+;; Compute new position
+;; ------------------------------------------------------------------------------------------------
+
 (defn get-new-npos [due dir pos npos]
   (cond 
+
+    ;; Next two lines handle passing Pac-Man through pipes.
     (and (= (:y npos) 100) (>= (:x npos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
     (and (= (:y npos) 100) (<= (:x npos) -12) (= dir (:left const/game-const)))  {:y 100 :x 190}
-    (= dir (:none const/game-const)) pos
-    :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
 
-(defn get-old-pos [dir pos npos]
-  (cond 
+    ;; If pacman is facing a wall, do not compute a new coordinate, instead, return same position.
     (= dir (:none const/game-const)) pos
-    :else npos))
+
+    ;; If direction has changed, compute a new coordinate based on the new direction
+    ;; Else, compute a new coordinate based on current direction.
+    :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
 
 (defn refresh-user-data 
   [user] 
@@ -246,15 +251,20 @@
    :position (:npos user)
    :old-pos  (:position user)
    :direction (get-new-direction (:due user) (:direction user) (:position user) (:npos user))
-   :due (get-due)
+   :due (:direction user)
+
+   ;; These lines fail currently.
    ;:next-whole (next-pos (:position user) (:direction user))
    ;:block (gamemap/block (:next-whole user))
    })
 
+
+;; ------------------------------------------------------------------------------------------------
+;; Move Pac-Man
+;; ------------------------------------------------------------------------------------------------
+
 (defn move [user]
-  (reset! user-state (merge user (refresh-user-data user)))
-  ;; (helper/console-log @user-state)
-  )
+  (reset! user-state (merge user (refresh-user-data user))))
 
 (defn draw []
   (let [ctx (:ctx @state/game-state)

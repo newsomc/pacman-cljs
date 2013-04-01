@@ -36,7 +36,6 @@
    (set! (. ctx -strokeStyle) "#0000FF")
    (set! (. ctx -lineWidth) 5)
    (set! (. ctx -lineCap) "round")
-
    (letfn [(*block-size [n] (* n (:block-size @map-state)))]
      (doseq [line const/WALLS]
        (.beginPath ctx)

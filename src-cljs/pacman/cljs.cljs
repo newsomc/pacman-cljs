@@ -115,6 +115,7 @@
   
   (user/move @user/user-state)
   (redraw-block (:old-pos @user/user-state))
+  ;;(.log js/console (pr-str @user/user-state))
   (user/draw)
   ;(swap! user/user-state (user/move @user/user-state))
   ;
