@@ -1,4 +1,5 @@
 (ns pacman.game
+  (:require-macros [pacman.macros :as m])
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [clojure.browser.repl :as repl]))
@@ -99,17 +100,17 @@
 
     (doseq [i (range (:lives user))]
       (set! (. ctx -fillStyle) "#FFFF00")
-      (.beginPath ctx)
-      (.moveTo ctx (+ 150 (* 25 i) (/ block-size 2)) 
-                   (+ (+ top-left 1) (/ block-size 2)))
-
-      (.arc ctx (+ (+ 150 (* 25 i)) (/ block-size 2)) 
-                (+ (+ top-left 1) (/ block-size 2)) 
-                (/ block-size 2)
-                (* (.-PI js/Math) 0.25)
-                (* (.-PI js/Math) 1.75)
-                false)
-      (.fill ctx))
+      (doto ctx
+        (.beginPath)
+        (.moveTo (+ 150 (* 25 i) (/ block-size 2)) 
+          (+ (+ top-left 1) (/ block-size 2)))
+        (.arc (+ (+ 150 (* 25 i)) (/ block-size 2)) 
+          (+ (+ top-left 1) (/ block-size 2)) 
+          (/ block-size 2)
+          (* (.-PI js/Math) 0.25)
+          (* (.-PI js/Math) 1.75)
+          false)
+        (.fill)))
 
     (set! (. ctx -font) "bold 16px sans-serif")
     (.fillText ctx "s" 10 text-base)
@@ -194,11 +195,11 @@
 (defn main-draw [state]
   (-> state
     (draw-map)
-    ;;(draw-pills)
-    ;; (draw-footer)
-    ;; (redraw-block)
+    (draw-pills)
+    ;;(draw-footer)
+    ;;(redraw-block)
     (draw-pacman)
-    ;; (draw-dialog)
+    ;;(draw-dialog)
     ))
 
 ;; =============================================================================
