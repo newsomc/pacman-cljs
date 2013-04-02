@@ -33,35 +33,35 @@
 
 (def game-state
   {:phase :waiting
-    :user {:position {:x 90 :y 120}
-            :direction (:left const/game-const)
-            :eaten 0
-            :due (:left const/game-const)
-            :lives 0
-            :score 5
-            :npos {:x 90 :y 120}
-            :next-whole nil
-            :block nil
-            :old-pos nil}
-    :map {:height nil
-          :width nil
-          :pill-size 0 
-          :block-size (.-offsetWidth (helper/get-element-by-id "pacman"))
-          :map const/game-map}
-    :audio []
-    :ghosts (mapv make-ghost ghost-specs)
-    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
-    :eaten-count 0
-    :level 0
-    :tick 0
-    :ghost-pos []
-    :state-changed true
-    :timer-start nil
-    :last-time 0
-    :ctx nil
-    :timer nil
-    :stored nil
-    :n-score 0})
+   :user {:position {:x 90 :y 120}
+          :direction (:left const/game-const)
+          :eaten 0
+          :due (:left const/game-const)
+          :lives 0
+          :score 5
+          :npos {:x 90 :y 120}
+          :next-whole nil
+          :block nil
+          :old-pos nil}
+   :map {:height nil
+         :width nil
+         :pill-size 0 
+         :block-size nil
+         :map const/game-map}
+   :audio []
+   :ghosts (mapv make-ghost ghost-specs)
+   :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
+   :eaten-count 0
+   :level 0
+   :tick 0
+   :ghost-pos []
+   :state-changed true
+   :timer-start nil
+   :last-time 0
+   :ctx nil
+   :timer nil
+   :stored nil
+   :n-score 0})
 
 ;; =============================================================================
 ;; Draw Functions
@@ -129,18 +129,19 @@
     (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5))  {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
-(defn redraw-block [{map :map :as state} pos]
-  (let [bs (:block-size map)
+(defn redraw-block [{map :map :as state}]
+  (let [{{pos :pos} :user} state
+        bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
-    (gamemap/draw-block state by bx  bs)
-    (gamemap/draw-block state by bx bs)
+    (draw-block state by bx bs)
+    (draw-block state by bx bs)
     state))
 
 (defn draw-pacman [{map :map user :user :as state}]
-  (let [s (:block-size map)
+  (let [s        (:block-size map)
         position (:position user)
-        angle (calc-angle (:direction user) position)]
+        angle     (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (.beginPath ctx)
     (.moveTo ctx (+ (* (/ (:x position) 10) s) (/ s 2))
@@ -193,9 +194,9 @@
 (defn main-draw [state]
   (-> state
     (draw-map)
-    ;; (gamemap/draw-pills)
+    ;;(draw-pills)
     ;; (draw-footer)
-    ;; (redraw-block (-> state :user :old-pos))
+    ;; (redraw-block)
     (draw-pacman)
     ;; (draw-dialog)
     ))
@@ -365,11 +366,9 @@
         (if (or (= layout const/EMPTY)
                 (= layout const/BLOCK)
                 (= layout const/BISCUIT)) 
-          (do-draw-biscuit y x layout block-size ctx))
+          (do-draw-biscuit state y x layout block-size ctx))
         (.closePath ctx)))
     state))
-
-
 
 (defn get-new-coord [dir pos]
   (let [x (or (and (= dir (:left const/game-const)) -2)
@@ -397,17 +396,21 @@
     (and (not= due dir) (direction-allowable? map due dir pos npos)) due
     :else due))
 
-(defn refresh-user-data [{user :user map :map}] 
+(defn refresh-user-data [{user :user map :map :as state}] 
   (let [{due :due dir :direction
          pos :position npos :npos} user]
-    {:npos     (get-new-npos due dir pos npos)
-     :position  npos
-     :old-pos   pos
-     :direction (get-new-direction map due dir pos npos)
-     :due       dir}))
+    (if (= (:phase state :playing))
+      {:npos      (get-new-npos due dir pos npos)
+        :position  npos
+        :old-pos   pos
+        :direction (get-new-direction map due dir pos npos)
+        :due       dir}
+      user)))
 
-(defn pacman-move [user]
-  (merge user (refresh-user-data user)))
+(defn pacman-move [state]
+  (update-in state [:user]
+    (fn [user]
+      (merge user (refresh-user-data state)))))
 
 (defn start-game [state]
   (-> state
@@ -420,7 +423,7 @@
   (if (> (- (:tick state) (:timer-start state)) (/ (const/FPS) 3))     
     (lose-life state)
     (-> state
-      (update-in [:user :position] redraw-block )
+      (redraw-block)
       (draw-dead (/ (:tick state) (* const/FPS 2))))))
 
 (defn game-countdown [state]
@@ -462,7 +465,8 @@
   (-> game-state
     (assoc :dialog "Press N to Start")
     (assoc-in [:map :width] 19)
-    (assoc-in [:map :height] 22)))
+    (assoc-in [:map :height] 22)
+    (assoc-in [:map :block-size] 18)))
 
 (defn loaded []
   (let [init-state (make-state)
