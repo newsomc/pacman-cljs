@@ -3,9 +3,6 @@
 (defn console-log [var]
   (.log js/console (pr-str var)))
 
-(def canvas (.getElementById js/document "canvas"))
-(def ctx (.getContext canvas "2d"))
-
 (def FPS 30)
 (def WAITING true)
 (def WALL 0)

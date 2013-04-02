@@ -1,7 +1,6 @@
 (ns pacman.ghost
   (:require [pacman.constants :as const]
-            [pacman.helpers :as helper]
-            [pacman.gamemap :as gamemap]))
+            [pacman.helpers :as helper]))
 
 (defn add-bounded 
   "Collision detection."

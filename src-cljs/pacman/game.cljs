@@ -1,6 +1,5 @@
 (ns pacman.game
   (:require [pacman.constants :as const]
-            [pacman.gamemap :as gamemap]
             [pacman.helpers :as helper]
             [clojure.browser.repl :as repl]))
 
@@ -9,8 +8,8 @@
 ;; =============================================================================
 ;; Definitions
 
-(def canvas const/canvas)
-(def ctx const/ctx)
+(def canvas (.getElementById js/document "canvas"))
+(def ctx (.getContext canvas "2d"))
 
 (defn make-ghost [color] 
   {:get-tick 0, 
@@ -61,15 +60,13 @@
     :last-time 0
     :ctx nil
     :timer nil
-    :map nil
     :stored nil
-    :n-score 0 })
+    :n-score 0})
 
 ;; =============================================================================
 ;; Draw Functions
 
-(defn draw-dialog [{dialog :dialog :as state}]
-  #_(.log js/console "drawing dialog" dialog)
+(defn draw-dialog [{map :map dialog :dialog :as state}]
   (if dialog
     (do
       (set! (. ctx  -fillStyle) "#FFFF00")
@@ -77,20 +74,20 @@
       (let [dialog-width (.-width (.measureText ctx dialog))
             map-width (alength (aget const/game-map 0))
             map-height (alength const/game-map)
-            x (/ (- (* map-width (:block-size gamemap/map-state)) dialog-width) 2)]
+            x (/ (- (* map-width (:block-size map)) dialog-width) 2)]
         (.fillText ctx dialog x (+ (* map-height 10) 8)))
       state)
     state))
 
 (defn draw-score 
-  [state text position]
+  [{map :map :as state} text position]
   (set! (. ctx  -fillStyle) "#FFFFFF")
   (set! (. ctx -font) "12px BDCartoonShoutRegular")
-  (.fillText ctx text (* 10 (:block-size gamemap/map-state)) (* 10 (:block-size gamemap/map-state)))
+  (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
   state)
 
-(defn draw-footer [{user :user :as state}]
-  (let [block-size (:block-size gamemap/map-state)
+(defn draw-footer [{map :map user :user :as state}]
+  (let [block-size (:block-size map)
         map-width (alength (aget const/game-map 0))
         map-height (alength const/game-map)
         top-left (* map-height block-size)
@@ -132,16 +129,16 @@
     (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5))  {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
-(defn redraw-block [state pos]
-  (let [bs (:block-size gamemap/map-state)
+(defn redraw-block [{map :map :as state} pos]
+  (let [bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
     (gamemap/draw-block state by bx  bs)
     (gamemap/draw-block state by bx bs)
     state))
 
-(defn draw-pacman [{user :user :as state}]
-  (let [s (:block-size gamemap/map-state)
+(defn draw-pacman [{map :map user :user :as state}]
+  (let [s (:block-size map)
         position (:position user)
         angle (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
@@ -157,9 +154,8 @@
     (.fill ctx)
     state))
 
-(defn draw-dead 
-  [state amount]
-  (let [size (:block-size gamemap/map-state)
+(defn draw-dead [{map :map :as state} amount]
+  (let [size (:block-size map)
         half (/ size 2)
         position (:position (:user state))]
     (if-not (>= amount 1)
@@ -178,13 +174,29 @@
         (.fill ctx)))
     state))
 
+(declare draw-wall draw-block is-floor-space?)
+
+(defn draw-map
+  "Main draw function for game board."
+  [{map :map :as state}]
+  (set! (. ctx  -fillStyle) "#000")
+  (let [width  (:width map)
+        height (:height map)
+        size   (:block-size map)]
+    (.fillRect ctx 0 0 (* width size) (* height size))
+    (draw-wall map)
+    (doseq [i (range height)] 
+      (doseq [j (range width)]
+        (draw-block i j size ctx)))
+    state))
+
 (defn main-draw [state]
   (-> state
-    (gamemap/draw)
+    (draw-map)
     ;; (gamemap/draw-pills)
     ;; (draw-footer)
     ;; (redraw-block (-> state :user :old-pos))
-    ;; (draw-pacman)
+    (draw-pacman)
     ;; (draw-dialog)
     ))
 
@@ -233,50 +245,133 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
-(defn is-on-same-plane? 
-  [due dir]
+(defn is-on-same-plane? [due dir]
   (or (and (or (= due (:left const/game-const)) (= due (:right const/game-const))) 
            (or (= dir (:left const/game-const)) (= dir (:right const/game-const))))
       (and (or (= due (:up const/game-const)) (= due (:down const/game-const))) 
            (or (= dir (:up const/game-const)) (= dir (:down const/game-const))))))
 
-(defn on-whole-square? 
-  [p]
+(defn on-whole-square? [p]
   (= (mod p 10) 0))
 
-(defn on-grid-square? 
-  [pos]
+(defn on-grid-square? [pos]
   (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
 
-(defn point-to-coord 
-  [n]
+(defn point-to-coord [n]
   (Math/round (/ n 10)))
 
-(defn next-square 
-  [n dir]
+(defn next-square [n dir]
   (let [rem (mod n 10)]
-    (cond (= rem 0) n
-          (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ n (- 10 rem))
-          :else (- n rem))))
+    (cond
+      (= rem 0) n
+      (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ n (- 10 rem))
+      :else (- n rem))))
 
-(defn next-pos 
-  [pos dir]
+(defn next-pos [pos dir]
   {:y (point-to-coord (next-square (:y pos) dir))
    :x (point-to-coord (next-square (:x pos) dir))})
 
-(defn is-mid-square? 
-  [x]
+(defn is-mid-square? [x]
   (let [rem (mod x 10)]
     (or (> rem 3) (< rem 7))))
 
-(defn direction-allowable? 
-  [due dir pos npos]
+(defn direction-allowable? [map due dir pos npos]
   (and (or (is-on-same-plane? due dir) 
            (on-grid-square? pos)) 
-    (gamemap/is-floor-space? (next-pos npos due))))
+    (is-floor-space? map (next-pos npos due))))
 
-(defn get-new-coord 
-  [dir pos]
+(defn map-pos [x y]
+  (aget const/game-map x y))
+
+(defn within-bounds? [map x y]
+  (and (>= y 0) (< y (:height map)) (>= x 0) (< x (:width map))))
+
+(defn is-wall-space? [map pos]
+  (and (within-bounds? map (:x pos) (:y pos)) 
+       (= const/WALL (map-pos (:y pos) (:x pos)))))
+
+(defn is-floor-space? [map pos]
+  (if (within-bounds? map (:x pos) (:y pos))
+    (let [piece (map-pos (:x pos) (:y pos))]
+      (or (= piece const/EMPTY)
+          (= piece const/BISCUIT)
+          (= piece const/PILL)))))
+
+(defn draw-wall [map]
+  (set! (. ctx -strokeStyle) "#0000FF")
+  (set! (. ctx -lineWidth) 5)
+  (set! (. ctx -lineCap) "round")
+  (letfn [(*block-size [n] (* n (:block-size map)))]
+    (doseq [line const/WALLS]
+      (.beginPath ctx)
+      (doseq [point line]
+        (cond (:move point) (let [[a b] (:move point)]
+                              (.moveTo ctx (*block-size a) (*block-size b)))
+          (:line point) (let [[a b] (:line point)] 
+                          (.lineTo ctx (*block-size a) (*block-size b)))
+          (:curve point) (let [[a b c d] (:curve point)] 
+                           (.quadraticCurveTo ctx 
+                             (*block-size a)
+                             (*block-size b)
+                             (*block-size c)
+                             (*block-size d)))))       
+      (.stroke ctx))))
+
+(defn block [pos]
+  (map-pos (:y pos) (:x pos)))
+
+(defn draw-pills [{map :map :as state}]
+  (let [height     (:height map)
+        width      (:width map)
+        block-size (:block-size map)]
+    (doseq [i (range height)]
+      (doseq [j (range width)]
+        (if (= (map-pos i j) const/PILL)
+          (do
+            (.beginPath ctx)
+            (set! (. ctx -fillStyle) "#000")
+            (.fillRect ctx (* j block-size) 
+                           (* i block-size)
+                           block-size 
+                           block-size)
+            (set! (. ctx -fillStyle) "#FFF")
+            (.arc ctx (+ (* j block-size) (/ block-size 2))
+                      (+ (* i block-size) (/ block-size 2))
+                      (Math/abs (- 5 (/ (:pill-size map) 3)))
+                      0
+                      (* (.-PI js/Math) 2)
+                      false)
+            (.fill ctx)
+            (.closePath ctx)))))
+    state))
+
+(defn do-draw-biscuit [state y x layout block-size]
+  (set! (. ctx -fillStyle) "#000")
+  (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
+  (if (= layout const/BISCUIT)
+    (do
+      (set! (. ctx -fillStyle) "#FFF")
+      (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
+                     (+ (* y block-size) (/ block-size 2.5))
+                     (/ block-size 6)
+                     (/ block-size 6))))
+  state)
+
+(defn draw-block [state y x block-size] 
+  (let [layout (map-pos y x)]
+    (if-not (= layout const/PILL) 
+      (do   
+        (.beginPath ctx)
+        (if (or (= layout const/EMPTY)
+                (= layout const/BLOCK)
+                (= layout const/BISCUIT)) 
+          (do-draw-biscuit y x layout block-size ctx))
+        (.closePath ctx)))
+    state))
+
+
+
+(defn get-new-coord [dir pos]
   (let [x (or (and (= dir (:left const/game-const)) -2)
               (and (= dir (:right const/game-const)) 2) 
               0)
@@ -293,22 +388,22 @@
     (= dir (:none const/game-const)) pos
     :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
 
-(defn facing-wall? [pos npos dir]
-  (and (on-grid-square? pos) (gamemap/is-wall-space? (next-pos npos dir))))
+(defn facing-wall? [map pos npos dir]
+  (and (on-grid-square? pos) (is-wall-space? map (next-pos npos dir))))
 
-(defn get-new-direction [due dir pos npos]
+(defn get-new-direction [map due dir pos npos]
   (cond 
-    (facing-wall? pos npos dir) (:none const/game-const) 
-    (and (not= due dir) (direction-allowable? due dir pos npos)) due
+    (facing-wall? map pos npos dir) (:none const/game-const) 
+    (and (not= due dir) (direction-allowable? map due dir pos npos)) due
     :else due))
 
-(defn refresh-user-data [user] 
+(defn refresh-user-data [{user :user map :map}] 
   (let [{due :due dir :direction
          pos :position npos :npos} user]
     {:npos     (get-new-npos due dir pos npos)
      :position  npos
      :old-pos   pos
-     :direction (get-new-direction due dir pos npos)
+     :direction (get-new-direction map due dir pos npos)
      :due       dir}))
 
 (defn pacman-move [user]
@@ -363,10 +458,15 @@
         (= phase :countdown) (game-countdown state)
         :else state))))
 
+(defn make-state []
+  (-> game-state
+    (assoc :dialog "Press N to Start")
+    (assoc-in [:map :width] 19)
+    (assoc-in [:map :height] 22)))
+
 (defn loaded []
-  #_(.log js/console "LOADED =======")
-  (let [init-state (assoc game-state :dialog "Press N to Start")
-        interval (/ 1000 const/FPS)]
+  (let [init-state (make-state)
+        interval   (/ 1000 const/FPS)]
     (.addEventListener js/document "keydown" handle-keydown true)
     (.setTimeout js/window
       (fn game-loop [s]
