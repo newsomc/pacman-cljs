@@ -33,45 +33,54 @@
               (:ARROW_DOWN  const/KEYS) (:down const/game-const)})
 
 (def game-state
-  {:phase (:waiting const/game-const)
-   :user {:position {:x 90 :y 120}
-          :direction (:left const/game-const)
-          :eaten 0
-          :due (:left const/game-const)
-          :lives 0
-          :score 5
-          :npos {:x 90 :y 120}
-          :next-whole nil
-          :block nil
-          :old-pos nil}
-   :audio []
-   :ghosts (mapv make-ghost ghost-specs)
-   :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
-   :eaten-count 0
-   :level 0
-   :tick 0
-   :ghost-pos []
-   :state-changed true
-   :timer-start nil
-   :last-time 0
-   :ctx nil
-   :timer nil
-   :map nil
-   :stored nil
-   :n-score 0 })
+  {:phase :waiting
+    :user {:position {:x 90 :y 120}
+            :direction (:left const/game-const)
+            :eaten 0
+            :due (:left const/game-const)
+            :lives 0
+            :score 5
+            :npos {:x 90 :y 120}
+            :next-whole nil
+            :block nil
+            :old-pos nil}
+    :map {:height nil
+          :width nil
+          :pill-size 0 
+          :block-size (.-offsetWidth (helper/get-element-by-id "pacman"))
+          :map const/game-map}
+    :audio []
+    :ghosts (mapv make-ghost ghost-specs)
+    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
+    :eaten-count 0
+    :level 0
+    :tick 0
+    :ghost-pos []
+    :state-changed true
+    :timer-start nil
+    :last-time 0
+    :ctx nil
+    :timer nil
+    :map nil
+    :stored nil
+    :n-score 0 })
 
 ;; =============================================================================
 ;; Draw Functions
 
-(defn dialog [state text]
-  (set! (. ctx  -fillStyle) "#FFFF00")
-  (set! (. ctx -font) "14px BDCartoonShoutRegular")
-  (let [dialog-width (.-width (.measureText ctx text))
-        map-width (alength (aget const/game-map 0))
-        map-height (alength const/game-map)
-        x (/ (- (* map-width (:block-size gamemap/map-state)) dialog-width) 2)]
-    (.fillText ctx text x (+ (* map-height 10) 8)))
-  state)
+(defn draw-dialog [{dialog :dialog :as state}]
+  #_(.log js/console "drawing dialog" dialog)
+  (if dialog
+    (do
+      (set! (. ctx  -fillStyle) "#FFFF00")
+      (set! (. ctx -font) "14px BDCartoonShoutRegular")
+      (let [dialog-width (.-width (.measureText ctx dialog))
+            map-width (alength (aget const/game-map 0))
+            map-height (alength const/game-map)
+            x (/ (- (* map-width (:block-size gamemap/map-state)) dialog-width) 2)]
+        (.fillText ctx dialog x (+ (* map-height 10) 8)))
+      state)
+    state))
 
 (defn draw-score 
   [state text position]
@@ -124,9 +133,12 @@
     :else {:start 0 :end 2 :direction false}))
 
 (defn redraw-block [state pos]
-  (gamemap/draw-block (Math/floor (/ (:y pos) 10)) (Math/floor (/ (:x pos) 10)) (:block-size gamemap/map-state) ctx)
-  (gamemap/draw-block (Math/ceil (/ (:y pos) 10)) (Math/ceil (/ (:x pos) 10)) (:block-size gamemap/map-state) ctx)
-  state)
+  (let [bs (:block-size gamemap/map-state)
+        by (Math/floor (/ (:y pos) 10))
+        bx (Math/floor (/ (:x pos) 10))]
+    (gamemap/draw-block state by bx  bs)
+    (gamemap/draw-block state by bx bs)
+    state))
 
 (defn draw-pacman [{user :user :as state}]
   (let [s (:block-size gamemap/map-state)
@@ -169,10 +181,12 @@
 (defn main-draw [state]
   (-> state
     (gamemap/draw)
-    (gamemap/draw-pills)
-    (draw-footer)
-    (redraw-block (-> state :user :old-pos))
-    (draw-pacman)))
+    ;; (gamemap/draw-pills)
+    ;; (draw-footer)
+    ;; (redraw-block (-> state :user :old-pos))
+    ;; (draw-pacman)
+    ;; (draw-dialog)
+    ))
 
 ;; =============================================================================
 ;; Event Handlers
@@ -208,7 +222,7 @@
       (:P const/KEYS) (-> state
                         (assoc :stored (:phase state))
                         (assoc :phase :pause)
-                        (dialog "Paused"))
+                        (assoc :dialog "Paused"))
       (if (and kc (not= (:phase state) :pause))
         (assoc-in state [:user :due] (get key-map kc))
         state))))
@@ -302,7 +316,6 @@
 
 (defn start-game [state]
   (-> state
-    (dialog "Press N to start a New game")
     (assoc :state-changed false)))
 
 (defn game-playing [state]
@@ -322,8 +335,8 @@
         (assoc :phase :playing))
       (if-not (= diff (:last-time state))
         (-> state
-          (assoc-in :last-time diff)
-          (dialog (str "Starting in: " diff)))))))
+          (assoc :last-time diff)
+          (assoc :dialog (str "Starting in: " diff)))))))
 
 (defn eaten-pill [state]
   (-> state
@@ -347,12 +360,13 @@
         (and (= phase :eaten-pause) 
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
         (= phase :dying) (game-dying state)
-        (= phase :countdown) (game-countdown state)))))
+        (= phase :countdown) (game-countdown state)
+        :else state))))
 
 (defn loaded []
-  (let [init-state game-state
+  #_(.log js/console "LOADED =======")
+  (let [init-state (assoc game-state :dialog "Press N to Start")
         interval (/ 1000 const/FPS)]
-    (dialog init-state "Press N to Start")
     (.addEventListener js/document "keydown" handle-keydown true)
     (.setTimeout js/window
       (fn game-loop [s]
@@ -368,7 +382,8 @@
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
-    (dialog {} "Loading...")
+    ;; a bit trickier maybe handle as special? - David
+    ;;(dialog {} "Loading...")
     (loaded)))
 
 ;; Init!

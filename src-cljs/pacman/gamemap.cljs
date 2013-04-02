@@ -5,21 +5,14 @@
 (def canvas const/canvas)
 (def ctx const/ctx)
 
-(def map-state
-  {:height nil
-   :width nil
-   :pill-size 0 
-   :block-size (.-offsetWidth (helper/get-element-by-id "pacman"))
-   :map const/game-map})
-
 (defn map-pos 
   [x y]
   ;(helper/console-log (aget const/game-map x y))
   (aget const/game-map x y))
 
 (defn within-bounds? 
-  [x y]
-  (and (>= y 0) (< y (:height map-state)) (>= x 0) (< x (:width map-state))))
+  [{map :map} x y]
+  (and (>= y 0) (< y (:height map)) (>= x 0) (< x (:width map))))
 
 (defn is-wall-space? [pos]
   (and (within-bounds? (:x pos) (:y pos)) 
@@ -33,33 +26,34 @@
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
 
-(defn draw-wall [state]
-   (set! (. ctx -strokeStyle) "#0000FF")
-   (set! (. ctx -lineWidth) 5)
-   (set! (. ctx -lineCap) "round")
-   (letfn [(*block-size [n] (* n (:block-size map-state)))]
-     (doseq [line const/WALLS]
-       (.beginPath ctx)
-       (doseq [point line]
-         (cond (:move point) (let [[a b] (:move point)]
-                               (.moveTo ctx (*block-size a) (*block-size b)))
-               (:line point) (let [[a b] (:line point)] 
-                               (.lineTo ctx (*block-size a) (*block-size b)))
-               (:curve point) (let [[a b c d] (:curve point)] 
-                                (.quadraticCurveTo ctx 
-                                                   (*block-size a)
-                                                   (*block-size b)
-                                                   (*block-size c)
-                                                   (*block-size d)))))       
-       (.stroke ctx))))
+(defn draw-wall [{map :map :as state}]
+  (set! (. ctx -strokeStyle) "#0000FF")
+  (set! (. ctx -lineWidth) 5)
+  (set! (. ctx -lineCap) "round")
+  (letfn [(*block-size [n] (* n (:block-size map)))]
+    (doseq [line const/WALLS]
+      (.beginPath ctx)
+      (doseq [point line]
+        (cond (:move point) (let [[a b] (:move point)]
+                              (.moveTo ctx (*block-size a) (*block-size b)))
+          (:line point) (let [[a b] (:line point)] 
+                          (.lineTo ctx (*block-size a) (*block-size b)))
+          (:curve point) (let [[a b c d] (:curve point)] 
+                           (.quadraticCurveTo ctx 
+                             (*block-size a)
+                             (*block-size b)
+                             (*block-size c)
+                             (*block-size d)))))       
+      (.stroke ctx)))
+  state)
 
 (defn block [pos]
   (map-pos (:y pos) (:x pos)))
 
-(defn draw-pills [state]
-  (let [height (:height map-state)
-        width (:width map-state)
-        block-size (:block-size map-state)]
+(defn draw-pills [{map :map :as state}]
+  (let [height     (:height map)
+        width      (:width map)
+        block-size (:block-size map)]
     (doseq [i (range height)]
       (doseq [j (range width)]
         (if (= (map-pos i j) const/PILL)
@@ -112,6 +106,7 @@
   (let [width (:width map-state)
         height (:height map-state)
         size (:block-size map-state)]
+    (.log js/console width height size)
     (.fillRect ctx 0 0 (* width size) (* height size))
     (draw-wall ctx)
     (doseq [i (range height)] 
