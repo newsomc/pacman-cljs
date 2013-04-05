@@ -1,15 +1,13 @@
 (ns pacman.constants)
 
-(defn console-log [var]
-  (.log js/console (pr-str var)))
-
 (def FPS 30)
-(def WAITING true)
 (def WALL 0)
 (def BISCUIT 1)
 (def EMPTY 2)
 (def BLOCK 3)
 (def PILL 4)
+
+;; Keys
 (def BASE-KEYS
   {:BACKSPACE 8,
     :TAB 9,
