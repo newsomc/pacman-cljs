@@ -1,8 +1,9 @@
 (ns pacman.game
-  (:require-macros [pacman.macros :as m])
+;  (:require-macros [pacman.macros :as m])
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [clojure.browser.repl :as repl]))
+
 
 (repl/connect "http://localhost:9000/repl")
 
@@ -48,7 +49,7 @@
          :width nil
          :pill-size 0 
          :block-size nil
-         :map const/game-map}
+         :board const/game-map}
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -87,10 +88,12 @@
   (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
   state)
 
+(declare draw-block draw-pills)
+
 (defn draw-footer [{map :map user :user :as state}]
   (let [block-size (:block-size map)
-        map-width (alength (aget const/game-map 0))
-        map-height (alength const/game-map)
+        map-width (alength (aget (:board map) 0))
+        map-height (alength (:board map))
         top-left (* map-height block-size)
         text-base (+ top-left 17)]
 
@@ -131,11 +134,11 @@
     :else {:start 0 :end 2 :direction false}))
 
 (defn redraw-block [{map :map :as state}]
-  (let [{{pos :pos} :user} state
+  (let [{{pos :position} :user} state
         bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
-    (draw-block state by bx bs)
+    ;(draw-block state by bx bs)
     (draw-block state by bx bs)
     state))
 
@@ -189,14 +192,14 @@
     (draw-wall map)
     (doseq [i (range height)] 
       (doseq [j (range width)]
-        (draw-block i j size ctx)))
+        (draw-block state i j size)))
     state))
 
 (defn main-draw [state]
   (-> state
     (draw-map)
+    (draw-footer)
     (draw-pills)
-    ;;(draw-footer)
     ;;(redraw-block)
     (draw-pacman)
     ;;(draw-dialog)
@@ -282,8 +285,8 @@
            (on-grid-square? pos)) 
     (is-floor-space? map (next-pos npos due))))
 
-(defn map-pos [x y]
-  (aget const/game-map x y))
+(defn map-pos [y x]
+  (aget const/game-map y x))
 
 (defn within-bounds? [map x y]
   (and (>= y 0) (< y (:height map)) (>= x 0) (< x (:width map))))
@@ -294,7 +297,7 @@
 
 (defn is-floor-space? [map pos]
   (if (within-bounds? map (:x pos) (:y pos))
-    (let [piece (map-pos (:x pos) (:y pos))]
+    (let [piece (map-pos (:y pos) (:x pos))]
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
@@ -347,17 +350,18 @@
             (.closePath ctx)))))
     state))
 
-(defn do-draw-biscuit [state y x layout block-size]
-  (set! (. ctx -fillStyle) "#000")
-  (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
-  (if (= layout const/BISCUIT)
-    (do
-      (set! (. ctx -fillStyle) "#FFF")
-      (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
-                     (+ (* y block-size) (/ block-size 2.5))
-                     (/ block-size 6)
-                     (/ block-size 6))))
-  state)
+(defn draw-biscuit [y x layout {map :map :as state}]
+  (let [block-size (:block-size map)]
+    (set! (. ctx -fillStyle) "#000")
+    (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
+    (if (= layout const/BISCUIT)
+      (do
+        (set! (. ctx -fillStyle) "#FFF")
+        (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
+          (+ (* y block-size) (/ block-size 2.5))
+          (/ block-size 6)
+          (/ block-size 6))))
+    state))
 
 (defn draw-block [state y x block-size] 
   (let [layout (map-pos y x)]
@@ -367,9 +371,10 @@
         (if (or (= layout const/EMPTY)
                 (= layout const/BLOCK)
                 (= layout const/BISCUIT)) 
-          (do-draw-biscuit state y x layout block-size ctx))
+          (draw-biscuit y x layout state))
         (.closePath ctx)))
     state))
+
 
 (defn get-new-coord [dir pos]
   (let [x (or (and (= dir (:left const/game-const)) -2)
