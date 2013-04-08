@@ -2,8 +2,8 @@
 ;  (:require-macros [pacman.macros :as m])
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
+            [goog.dom :as dom]
             [clojure.browser.repl :as repl]))
-
 
 (repl/connect "http://localhost:9000/repl")
 
@@ -35,6 +35,8 @@
 
 (def game-state
   {:phase :waiting
+   :dialog nil
+   :countdown 4
    :user {:position {:x 90 :y 120}
           :direction (:left const/game-const)
           :eaten 0
@@ -77,9 +79,9 @@
             map-width (alength (aget const/game-map 0))
             map-height (alength const/game-map)
             x (/ (- (* map-width (:block-size map)) dialog-width) 2)]
-        (.fillText ctx dialog x (+ (* map-height 10) 8)))
-      state)
-    state))
+        (.fillText ctx dialog x (+ (* map-height 10) 8)) 
+        state)))
+  state)
 
 (defn draw-score 
   [{map :map :as state} text position]
@@ -92,28 +94,27 @@
 
 (defn draw-footer [{map :map user :user :as state}]
   (let [block-size (:block-size map)
-        map-width (alength (aget (:board map) 0))
-        map-height (alength (:board map))
+        map-width (alength (aget const/game-map 0))
+        map-height (alength const/game-map)
         top-left (* map-height block-size)
         text-base (+ top-left 17)]
-
     (set! (. ctx -fillStyle) "#000000")
     (.fillRect ctx 0 top-left (* map-width block-size) 30)
     (set! (. ctx -fillStyle) "#FFFF00")
-
     (doseq [i (range (:lives user))]
       (set! (. ctx -fillStyle) "#FFFF00")
       (doto ctx
         (.beginPath)
         (.moveTo (+ 150 (* 25 i) (/ block-size 2)) 
-          (+ (+ top-left 1) (/ block-size 2)))
+                 (+ (+ top-left 1) (/ block-size 2)))
         (.arc (+ (+ 150 (* 25 i)) (/ block-size 2)) 
-          (+ (+ top-left 1) (/ block-size 2)) 
-          (/ block-size 2)
-          (* (.-PI js/Math) 0.25)
-          (* (.-PI js/Math) 1.75)
-          false)
-        (.fill)))
+              (+ (+ top-left 1) (/ block-size 2)) 
+              (/ block-size 2)
+              (* (.-PI js/Math) 0.25)
+              (* (.-PI js/Math) 1.75)
+              false)
+        (.fill)
+        state))
 
     (set! (. ctx -font) "bold 16px sans-serif")
     (.fillText ctx "s" 10 text-base)
@@ -123,7 +124,10 @@
     
     (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
+
     state))
+
+;; Draw Pacm-Man
 
 (defn calc-angle [dir pos]
   (cond
@@ -138,24 +142,23 @@
         bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
-    ;(draw-block state by bx bs)
     (draw-block state by bx bs)
     state))
 
 (defn draw-pacman [{map :map user :user :as state}]
   (let [s        (:block-size map)
         position (:position user)
-        angle     (calc-angle (:direction user) position)]
+        angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (.beginPath ctx)
     (.moveTo ctx (+ (* (/ (:x position) 10) s) (/ s 2))
-                 (+ (* (/ (:y position) 10) s) (/ s 2)))
+      (+ (* (/ (:y position) 10) s) (/ s 2)))
     (.arc ctx (+ (* (/ (:x position) 10) s) (/ s 2))
-              (+ (* (/ (:y position) 10) s) (/ s 2))
-              (/ s 2)
-              (* (.-PI js/Math) (:start angle))
-              (* (.-PI js/Math) (:end angle))
-              (:direction angle))
+      (+ (* (/ (:y position) 10) s) (/ s 2))
+      (/ s 2)
+      (* (.-PI js/Math) (:start angle))
+      (* (.-PI js/Math) (:end angle))
+      (:direction angle))
     (.fill ctx)
     state))
 
@@ -196,14 +199,17 @@
     state))
 
 (defn main-draw [state]
-  (-> state
-    (draw-map)
-    (draw-footer)
-    (draw-pills)
-    ;;(redraw-block)
-    (draw-pacman)
-    ;;(draw-dialog)
-    ))
+  ;(helper/console-log (:phase state))
+  (let [new-state (-> state
+                    (draw-map)
+                    (draw-footer)
+                    (draw-pills)
+                    (draw-dialog)
+                    ;; (redraw-block)
+                    )]
+    (if (= :playing (:phase state))
+      (draw-pacman new-state)
+      new-state)))
 
 ;; =============================================================================
 ;; Event Handlers
@@ -211,35 +217,46 @@
 (def keydown-state (atom nil))
 
 (defn handle-keydown [e]
-  (reset! keydown-state (.-keyCode e))
-  (.preventDefault e)
-  (.stopPropagation e))
+    (reset! keydown-state (.-keyCode e))
+    (.preventDefault e)
+    (.stopPropagation e))
 
 ;; =============================================================================
 ;; Update Functions & Helpers
 
 (defn start-level [state]
   (-> state
-    (assoc :timer-start (:tick state))
+    (assoc :timer-start (- (:tick state) 1))
     (assoc :phase :countdown)))
 
 (defn start-new-game [state]
+  (.log js/console "hit...")
   (-> state
-    (assoc :phase :const)
     (assoc :level 1)
     (start-level)))
 
+(defn resume-game [state]
+  (-> state 
+    (assoc :dialog nil)
+    (assoc :phase :playing)))
+
+(defn pause-game [state]
+    (-> state
+      (assoc :dialog "Paused")
+      (assoc :phase :pause)))
+
+(defn toggle-pause [state]
+  (if (= (:phase state) :pause)
+    (resume-game state)
+    (pause-game state)))
+
 (defn keydown [state]
   (let [kc @keydown-state]
-    (condp = kc 
+    (reset! keydown-state nil)
+    (condp = kc
       (:N const/KEYS) (start-new-game state)
       (:S const/KEYS) (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false)
-      (:P const/KEYS) (-> state
-                        (assoc :phase :stored))
-      (:P const/KEYS) (-> state
-                        (assoc :stored (:phase state))
-                        (assoc :phase :pause)
-                        (assoc :dialog "Paused"))
+      (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
         (assoc-in state [:user :due] (get key-map kc))
         state))))
@@ -375,6 +392,8 @@
         (.closePath ctx)))
     state))
 
+;; ============================================================================================
+;; Move Pac-Man
 
 (defn get-new-coord [dir pos]
   (let [x (or (and (= dir (:left const/game-const)) -2)
@@ -418,12 +437,16 @@
     (fn [user]
       (merge user (refresh-user-data state)))))
 
+;; ============================================================================================
+;; Game Phases
+
 (defn start-game [state]
   (-> state
     (assoc :state-changed false)))
 
 (defn game-playing [state]
-  (assoc state :phase :playing))
+  (-> state
+    (assoc :phase :playing)))
 
 (defn game-dying [state]
   (if (> (- (:tick state) (:timer-start state)) (/ (const/FPS) 3))     
@@ -432,44 +455,73 @@
       (redraw-block)
       (draw-dead (/ (:tick state) (* const/FPS 2))))))
 
-(defn game-countdown [state]
-  (let [diff (+ 1 (.floor js/Math (/ (- (:timer-start state) (:tick state)) const/FPS)))]
-    (if (zero? diff)
-      (-> state
-        (assoc :phase :playing))
-      (if-not (= diff (:last-time state))
-        (-> state
-          (assoc :last-time diff)
-          (assoc :dialog (str "Starting in: " diff)))))))
+(def ticks-remaining (atom 0))
 
+;; diff should be set to the FPS initially.
+;; (defn game-countdown [state]
+;;   (reset! diff (+ @diff (.floor js/Math (/ (- (:timer-start state) (:tick state)) const/FPS))))
+;;   (if (zero? @diff) 
+;;     (-> state (game-playing)
+;;               (assoc :dialog nil))
+;;     (if-not (= @diff (:last-time state))
+;;       (-> state 
+;;         (assoc :last-time @diff) 
+;;         (assoc :dialog (str "Starting in: " @diff))) state)
+;;     state))
+
+(defn game-countdown [state]
+  (if (zero? @ticks-remaining)
+    (if (zero? (:countdown state))
+      (do
+        (reset! ticks-remaining 0)
+        (-> state game-playing (assoc :dialog nil) (assoc :countdown 4)))
+      (do 
+        (reset! ticks-remaining const/FPS)
+        (-> state 
+          (update-in [:countdown] dec) 
+          (assoc :dialog (str "Starting in: " (dec (:countdown state)))))))
+    (do
+      (swap! ticks-remaining dec)
+      state)))
+
+  ;; #_(let [diff (atom 5)]
+  ;;   #_(if (zero? @diff)
+  ;;     (-> state
+  ;;       (assoc :phase :playing))
+  ;;     (if-not (= @diff (:last-time state))
+  ;;       (-> state
+  ;;         (assoc :last-time diff)
+  ;;         (assoc :dialog (str "Starting in: " diff))))) )
+
+ 
 (defn eaten-pill [state]
   (-> state
     (assoc :timer-start (:tick state))
     (assoc :eaten-count 0)))
 
-;; =============================================================================
-;; Game Loop
+;; ============================================================================================
+;; Main Game Loop
 
-(defn driver [state]
+(defn driver  [state]
   (let [phase (:phase state)
-        state (-> (if-not (= phase :pause) 
-                    (update-in state [:tick] (fnil inc 0))
-                    state)
+        state (-> (if (= phase :pause) 
+                    state
+                    (update-in state [:tick] (fnil inc 0)))
                 (keydown)
                 (update-in [:user] pacman-move))]
     (main-draw
       (cond 
-        (= phase :playing) state
+        (= phase :playing) state;(game-playing state)
         (and (= phase :waiting) (:state-changed state)) (start-game state) 
         (and (= phase :eaten-pause) 
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
         (= phase :dying) (game-dying state)
-        (= phase :countdown) (game-countdown state)
+        (= phase :countdown) (-> state (game-countdown))
         :else state))))
 
 (defn make-state []
   (-> game-state
-    (assoc :dialog "Press N to Start")
+    (assoc :dialog "Press N to start a new game")
     (assoc-in [:map :width] 19)
     (assoc-in [:map :height] 22)
     (assoc-in [:map :block-size] 18)))
