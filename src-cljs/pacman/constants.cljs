@@ -7,6 +7,13 @@
 (def BLOCK 3)
 (def PILL 4)
 
+;; Pac-Man Direction
+(def LEFT 2)
+(def RIGHT 11)
+(def UP 3)
+(def DOWN 1)
+(def FACINGWALL 4)
+
 ;; Keys
 (def BASE-KEYS
   {:BACKSPACE 8,
