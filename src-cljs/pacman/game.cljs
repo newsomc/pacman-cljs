@@ -13,6 +13,13 @@
 (def canvas (.getElementById js/document "canvas"))
 (def ctx (.getContext canvas "2d"))
 
+;; User 
+(def controls { (:ARROW_LEFT  const/KEYS) const/LEFT
+                (:ARROW_UP    const/KEYS) const/UP
+                (:ARROW_RIGHT const/KEYS) const/RIGHT
+                (:ARROW_DOWN  const/KEYS) const/DOWN })
+
+;; Game State
 (defn make-ghost [color] 
   {:get-tick 0, 
    :eatable nil, 
@@ -28,19 +35,14 @@
 
 (def ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"])
 
-(def key-map {(:ARROW_LEFT  const/KEYS) (:left const/game-const)
-              (:ARROW_UP    const/KEYS) (:up const/game-const)
-              (:ARROW_RIGHT const/KEYS) (:right const/game-const)
-              (:ARROW_DOWN  const/KEYS) (:down const/game-const)})
-
 (def game-state
   {:phase :waiting
    :dialog nil
    :countdown 4
    :user {:position {:x 90 :y 120}
-          :direction (:left const/game-const)
+          :direction nil ;const/LEFT
           :eaten 0
-          :due (:left const/game-const)
+          :due nil ;const/LEFT
           :lives 0
           :score 5
           :npos {:x 90 :y 120}
@@ -124,17 +126,16 @@
     
     (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
-
     state))
 
 ;; Draw Pacm-Man
 
 (defn calc-angle [dir pos]
   (cond
-    (and (= dir (:right const/game-const)) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
-    (and (= dir (:down  const/game-const)) (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
-    (and (= dir (:up const/game-const)) (< (mod (:y pos) 10) 5))    {:start 1.25 :end 1.75 :direction true}     
-    (and (= dir (:left const/game-const)) (< (mod (:x pos) 10) 5))  {:start 0.75 :end 1.25 :direction true}
+    (and (= dir const/RIGHT) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
+    (and (= dir const/DOWN)  (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
+    (and (= dir const/UP)    (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
+    (and (= dir const/LEFT)  (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
 (defn redraw-block [{map :map :as state}]
@@ -142,8 +143,8 @@
         bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
-    (draw-block state by bx bs)
-    state))
+    (draw-block state by bx bs)))
+;; state
 
 (defn draw-pacman [{map :map user :user :as state}]
   (let [s        (:block-size map)
@@ -182,7 +183,7 @@
         (.fill ctx)))
     state))
 
-(declare draw-wall draw-block is-floor-space?)
+(declare draw-wall draw-block is-floor-space? pacman-move)
 
 (defn draw-map
   "Main draw function for game board."
@@ -199,17 +200,20 @@
     state))
 
 (defn main-draw [state]
-  ;(helper/console-log (:phase state))
   (let [new-state (-> state
                     (draw-map)
                     (draw-footer)
                     (draw-pills)
-                    (draw-dialog)
-                    ;; (redraw-block)
-                    )]
+                    (draw-dialog))]
     (if (= :playing (:phase state))
-      (draw-pacman new-state)
+      (-> new-state
+        (draw-pacman)
+        (pacman-move)
+        ;(redraw-block)
+        )
       new-state)))
+
+;;      (draw-pacman new-state)
 
 ;; =============================================================================
 ;; Event Handlers
@@ -230,7 +234,6 @@
     (assoc :phase :countdown)))
 
 (defn start-new-game [state]
-  (.log js/console "hit...")
   (-> state
     (assoc :level 1)
     (start-level)))
@@ -258,7 +261,10 @@
       (:S const/KEYS) (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false)
       (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
-        (assoc-in state [:user :due] (get key-map kc))
+        (do 
+          (.log js/console (get controls kc))
+          ;(.log js/console controls (get controls kc) kc)
+          (assoc-in state [:user :due] (get controls kc)))
         state))))
 
 (defn lose-life [state])
@@ -268,10 +274,10 @@
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
 (defn is-on-same-plane? [due dir]
-  (or (and (or (= due (:left const/game-const)) (= due (:right const/game-const))) 
-           (or (= dir (:left const/game-const)) (= dir (:right const/game-const))))
-      (and (or (= due (:up const/game-const)) (= due (:down const/game-const))) 
-           (or (= dir (:up const/game-const)) (= dir (:down const/game-const))))))
+  (or (and (or (= due const/LEFT) (= due const/RIGHT)) 
+           (or (= dir const/LEFT) (= dir const/RIGHT)))
+      (and (or (= due const/UP)   (= due const/DOWN)) 
+           (or (= dir const/UP)   (= dir const/DOWN)))))
 
 (defn on-whole-square? [p]
   (= (mod p 10) 0))
@@ -286,7 +292,7 @@
   (let [rem (mod n 10)]
     (cond
       (= rem 0) n
-      (or (= dir (:right const/game-const)) (= dir (:down const/game-const))) (+ n (- 10 rem))
+      (or (= dir const/RIGHT) (= dir const/DOWN)) (+ n (- 10 rem))
       :else (- n rem))))
 
 (defn next-pos [pos dir]
@@ -396,20 +402,20 @@
 ;; Move Pac-Man
 
 (defn get-new-coord [dir pos]
-  (let [x (or (and (= dir (:left const/game-const)) -2)
-              (and (= dir (:right const/game-const)) 2) 
+  (let [x (or (and (= dir const/LEFT) -2)
+              (and (= dir const/RIGHT) 2) 
               0)
-        y (or (and (= dir (:down const/game-const)) 2)
-              (and (= dir (:up const/game-const)) -2) 
+        y (or (and (= dir const/DOWN) 2)
+              (and (= dir const/UP) -2) 
               0)]
     {:x (+ (:x pos) x)
      :y (+ (:y pos) y)}))
 
 (defn get-new-npos [due dir pos npos]
   (cond 
-    (and (= (:y npos) 100) (>= (:x npos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
-    (and (= (:y npos) 100) (<= (:x npos) -12) (= dir (:left const/game-const)))  {:y 100 :x 190}
-    (= dir (:none const/game-const)) pos
+    (and (= (:y npos) 100) (>= (:x npos) 190) (= dir const/RIGHT)) {:y 100 :x -10}
+    (and (= (:y npos) 100) (<= (:x npos) -12) (= dir const/LEFT))  {:y 100 :x 190}
+    (= dir const/FACINGWALL) pos
     :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
 
 (defn facing-wall? [map pos npos dir]
@@ -417,15 +423,15 @@
 
 (defn get-new-direction [map due dir pos npos]
   (cond 
-    (facing-wall? map pos npos dir) (:none const/game-const) 
+    (facing-wall? map pos npos dir) const/FACINGWALL
     (and (not= due dir) (direction-allowable? map due dir pos npos)) due
     :else due))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{due :due dir :direction
          pos :position npos :npos} user]
-    (if (= (:phase state :playing))
-      {:npos      (get-new-npos due dir pos npos)
+    (if (= (:phase state) :playing)
+      { :npos      (get-new-npos due dir pos npos)
         :position  npos
         :old-pos   pos
         :direction (get-new-direction map due dir pos npos)
@@ -457,18 +463,6 @@
 
 (def ticks-remaining (atom 0))
 
-;; diff should be set to the FPS initially.
-;; (defn game-countdown [state]
-;;   (reset! diff (+ @diff (.floor js/Math (/ (- (:timer-start state) (:tick state)) const/FPS))))
-;;   (if (zero? @diff) 
-;;     (-> state (game-playing)
-;;               (assoc :dialog nil))
-;;     (if-not (= @diff (:last-time state))
-;;       (-> state 
-;;         (assoc :last-time @diff) 
-;;         (assoc :dialog (str "Starting in: " @diff))) state)
-;;     state))
-
 (defn game-countdown [state]
   (if (zero? @ticks-remaining)
     (if (zero? (:countdown state))
@@ -483,16 +477,6 @@
     (do
       (swap! ticks-remaining dec)
       state)))
-
-  ;; #_(let [diff (atom 5)]
-  ;;   #_(if (zero? @diff)
-  ;;     (-> state
-  ;;       (assoc :phase :playing))
-  ;;     (if-not (= @diff (:last-time state))
-  ;;       (-> state
-  ;;         (assoc :last-time diff)
-  ;;         (assoc :dialog (str "Starting in: " diff))))) )
-
  
 (defn eaten-pill [state]
   (-> state
