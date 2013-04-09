@@ -12,8 +12,6 @@
 
 (def canvas (.getElementById js/document "canvas"))
 (def ctx (.getContext canvas "2d"))
-
-;; User 
 (def controls { (:ARROW_LEFT  const/KEYS) const/LEFT
                 (:ARROW_UP    const/KEYS) const/UP
                 (:ARROW_RIGHT const/KEYS) const/RIGHT
@@ -40,9 +38,9 @@
    :dialog nil
    :countdown 4
    :user {:position {:x 90 :y 120}
-          :direction nil ;const/LEFT
+          :direction const/LEFT
           :eaten 0
-          :due nil ;const/LEFT
+          :due const/LEFT
           :lives 0
           :score 5
           :npos {:x 90 :y 120}
@@ -128,7 +126,8 @@
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
 
-;; Draw Pacm-Man
+;; =============================================================================
+;; Draw Pac-Man
 
 (defn calc-angle [dir pos]
   (cond
@@ -144,23 +143,24 @@
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
     (draw-block state by bx bs)))
-;; state
+;; state - no longer returns state. Instead, return redraw-block.
 
 (defn draw-pacman [{map :map user :user :as state}]
   (let [s        (:block-size map)
         position (:position user)
         angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
-    (.beginPath ctx)
-    (.moveTo ctx (+ (* (/ (:x position) 10) s) (/ s 2))
-      (+ (* (/ (:y position) 10) s) (/ s 2)))
-    (.arc ctx (+ (* (/ (:x position) 10) s) (/ s 2))
-      (+ (* (/ (:y position) 10) s) (/ s 2))
-      (/ s 2)
-      (* (.-PI js/Math) (:start angle))
-      (* (.-PI js/Math) (:end angle))
-      (:direction angle))
-    (.fill ctx)
+    (doto ctx
+      (.beginPath)
+      (.moveTo (+ (* (/ (:x position) 10) s) (/ s 2))
+        (+ (* (/ (:y position) 10) s) (/ s 2)))
+      (.arc (+ (* (/ (:x position) 10) s) (/ s 2))
+        (+ (* (/ (:y position) 10) s) (/ s 2))
+        (/ s 2)
+        (* (.-PI js/Math) (:start angle))
+        (* (.-PI js/Math) (:end angle))
+        (:direction angle))
+      (.fill))
     state))
 
 (defn draw-dead [{map :map :as state} amount]
@@ -168,19 +168,19 @@
         half (/ size 2)
         position (:position (:user state))]
     (if-not (>= amount 1)
-      (do 
-        (set! (. ctx  -fillStyle) "#FFFF00")
-        (.beginPath ctx)
-        (.moveTo ctx (+ (* (/ (:x position) 10) size) half)
-                     (+ (* (/ (:y position) 10) size) half))
+      (set! (. ctx  -fillStyle) "#FFFF00")
+      (doto ctx
+        (.beginPath)
+        (.moveTo (+ (* (/ (:x position) 10) size) half)
+          (+ (* (/ (:y position) 10) size) half))
 
-        (.arc ctx (+ (* (/ (:x position) 10) size) half)
-                  (+ (* (/ (:y position) 10) size) half)
-                  half
-                  0
-                  (* (.-PI js/Math) 2 amount)
-                  true)
-        (.fill ctx)))
+        (.arc (+ (* (/ (:x position) 10) size) half)
+          (+ (* (/ (:y position) 10) size) half)
+          half
+          0
+          (* (.-PI js/Math) 2 amount)
+          true)
+        (.fill)))
     state))
 
 (declare draw-wall draw-block is-floor-space? pacman-move)
@@ -206,14 +206,12 @@
                     (draw-pills)
                     (draw-dialog))]
     (if (= :playing (:phase state))
-      (-> new-state
-        (draw-pacman)
-        (pacman-move)
-        ;(redraw-block)
-        )
-      new-state)))
-
-;;      (draw-pacman new-state)
+      (do (-> new-state
+            (redraw-block)
+            (pacman-move)
+            (draw-pacman))
+        new-state)
+      state)))
 
 ;; =============================================================================
 ;; Event Handlers
@@ -262,8 +260,6 @@
       (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
         (do 
-          (.log js/console (get controls kc))
-          ;(.log js/console controls (get controls kc) kc)
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
@@ -303,6 +299,7 @@
   (let [rem (mod x 10)]
     (or (> rem 3) (< rem 7))))
 
+;; Also used for moving Pac-Man. Determines if he is facing a wall.
 (defn direction-allowable? [map due dir pos npos]
   (and (or (is-on-same-plane? due dir) 
            (on-grid-square? pos)) 
@@ -365,7 +362,7 @@
             (set! (. ctx -fillStyle) "#FFF")
             (.arc ctx (+ (* j block-size) (/ block-size 2))
                       (+ (* i block-size) (/ block-size 2))
-                      (Math/abs (- 5 (/ (:pill-size map) 3)))
+                     (Math/abs (- 5 (/ (:pill-size map) 3)))
                       0
                       (* (.-PI js/Math) 2)
                       false)
@@ -465,7 +462,7 @@
 
 (defn game-countdown [state]
   (if (zero? @ticks-remaining)
-    (if (zero? (:countdown state))
+    (if (= (:countdown state) 1)
       (do
         (reset! ticks-remaining 0)
         (-> state game-playing (assoc :dialog nil) (assoc :countdown 4)))
