@@ -137,15 +137,16 @@
     (and (= dir const/LEFT)  (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
+;; state - no longer returns state. Instead, return redraw-block.
 (defn redraw-block [{map :map :as state}]
   (let [{{pos :position} :user} state
         bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
     (draw-block state by bx bs)))
-;; state - no longer returns state. Instead, return redraw-block.
 
 (defn draw-pacman [{map :map user :user :as state}]
+  ;; (helper/console-log user)
   (let [s        (:block-size map)
         position (:position user)
         angle    (calc-angle (:direction user) position)]
@@ -413,7 +414,9 @@
     (and (= (:y npos) 100) (>= (:x npos) 190) (= dir const/RIGHT)) {:y 100 :x -10}
     (and (= (:y npos) 100) (<= (:x npos) -12) (= dir const/LEFT))  {:y 100 :x 190}
     (= dir const/FACINGWALL) pos
-    :else (if (not= due dir) (get-new-coord due pos) (get-new-coord dir pos))))
+    :else (if-not (= due dir) 
+            (get-new-coord due pos)
+            (get-new-coord dir pos))))
 
 (defn facing-wall? [map pos npos dir]
   (and (on-grid-square? pos) (is-wall-space? map (next-pos npos dir))))
@@ -426,9 +429,9 @@
 
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{due :due dir :direction
-         pos :position npos :npos} user]
+         pos :position npos :npos} user]    
     (if (= (:phase state) :playing)
-      { :npos      (get-new-npos due dir pos npos)
+      { :npos      (get-new-npos due dir pos npos) 
         :position  npos
         :old-pos   pos
         :direction (get-new-direction map due dir pos npos)
@@ -438,6 +441,7 @@
 (defn pacman-move [state]
   (update-in state [:user]
     (fn [user]
+      (helper/console-log (refresh-user-data state))
       (merge user (refresh-user-data state)))))
 
 ;; ============================================================================================
@@ -497,7 +501,7 @@
         (and (= phase :eaten-pause) 
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
         (= phase :dying) (game-dying state)
-        (= phase :countdown) (-> state (game-countdown))
+        (= phase :countdown) (game-countdown state)
         :else state))))
 
 (defn make-state []
