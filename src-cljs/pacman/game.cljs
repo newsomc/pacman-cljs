@@ -37,13 +37,13 @@
   {:phase :waiting
    :dialog nil
    :countdown 4
-   :user {:position {:x 90 :y 120}
+   :user {:position nil
           :direction const/LEFT
           :eaten 0
           :due const/LEFT
           :lives 0
           :score 5
-          :npos {:x 90 :y 120}
+          :npos nil
           :next-whole nil
           :block nil
           :old-pos nil}
@@ -146,9 +146,9 @@
     (draw-block state by bx bs)))
 
 (defn draw-pacman [{map :map user :user :as state}]
-  ;; (helper/console-log user)
+  (helper/console-log user)
   (let [s        (:block-size map)
-        position (:position user)
+        position (:npos user)
         angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (doto ctx
@@ -184,7 +184,7 @@
         (.fill)))
     state))
 
-(declare draw-wall draw-block is-floor-space? pacman-move)
+(declare draw-wall draw-block is-floor-space? move-pacman)
 
 (defn draw-map
   "Main draw function for game board."
@@ -209,7 +209,7 @@
     (if (= :playing (:phase state))
       (do (-> new-state
             (redraw-block)
-            (pacman-move)
+            (move-pacman)
             (draw-pacman))
         new-state)
       state)))
@@ -427,6 +427,17 @@
     (and (not= due dir) (direction-allowable? map due dir pos npos)) due
     :else due))
 
+;; (defn move-pacman [{user :user map :map :as state}] 
+;;   (let [{due :due dir :direction
+;;          pos :position npos :npos} user]
+;;     (if (= (:phase state) :playing)
+;;       (-> state
+;;         (assoc-in [:user :npos] (get-new-npos due dir pos npos))
+;;         (assoc-in [:user :position] npos)
+;;         (assoc-in [:user :old-pos] pos)
+;;         (assoc-in [:user :direction] (get-new-direction map due dir pos npos))
+;;         (assoc-in [:user :due] dir)))))
+
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{due :due dir :direction
          pos :position npos :npos} user]    
@@ -438,10 +449,9 @@
         :due       dir}
       user)))
 
-(defn pacman-move [state]
+(defn move-pacman [state]
   (update-in state [:user]
     (fn [user]
-      (helper/console-log (refresh-user-data state))
       (merge user (refresh-user-data state)))))
 
 ;; ============================================================================================
@@ -493,7 +503,8 @@
                     state
                     (update-in state [:tick] (fnil inc 0)))
                 (keydown)
-                (update-in [:user] pacman-move))]
+                ;(update-in [:user] pacman-move)
+)]
     (main-draw
       (cond 
         (= phase :playing) state;(game-playing state)
@@ -507,6 +518,8 @@
 (defn make-state []
   (-> game-state
     (assoc :dialog "Press N to start a new game")
+    (assoc-in [:user :position] {:x 90 :y 120})
+    (assoc-in [:user :npos] {:x 90 :y 120})
     (assoc-in [:map :width] 19)
     (assoc-in [:map :height] 22)
     (assoc-in [:map :block-size] 18)))
