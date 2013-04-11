@@ -1,5 +1,5 @@
 (ns pacman.game
-;  (:require-macros [pacman.macros :as m])
+; (:require-macros [pacman.macros :as m])
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [goog.dom :as dom]
@@ -307,7 +307,10 @@
   (aget const/game-map y x))
 
 (defn within-bounds? [map x y]
-  (and (>= y 0) (< y (:height map)) (>= x 0) (< x (:width map))))
+  (and (>= y 0) 
+       (< y (:height map)) 
+       (>= x 0) 
+       (< x (:width map))))
 
 (defn is-wall-space? [map pos]
   (and (within-bounds? map (:x pos) (:y pos)) 
@@ -316,6 +319,7 @@
 (defn is-floor-space? [map pos]
   (if (within-bounds? map (:x pos) (:y pos))
     (let [piece (map-pos (:y pos) (:x pos))]
+      (helper/console-log piece)
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
@@ -417,8 +421,7 @@
 (defn get-new-direction [map dir pos]
   (cond 
     (facing-wall? map pos dir) :facing-wall
-    (direction-allowable? map dir pos) dir
-    :else dir))
+    (direction-allowable? map dir pos) dir))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{dir :direction
