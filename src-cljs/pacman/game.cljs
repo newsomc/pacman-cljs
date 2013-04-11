@@ -12,10 +12,10 @@
 
 (def canvas (.getElementById js/document "canvas"))
 (def ctx (.getContext canvas "2d"))
-(def controls { (:ARROW_LEFT  const/KEYS) const/LEFT
-                (:ARROW_UP    const/KEYS) const/UP
-                (:ARROW_RIGHT const/KEYS) const/RIGHT
-                (:ARROW_DOWN  const/KEYS) const/DOWN })
+(def controls { (:ARROW_LEFT  const/KEYS) :left
+                (:ARROW_UP    const/KEYS) :up
+                (:ARROW_RIGHT const/KEYS) :right
+                (:ARROW_DOWN  const/KEYS) :down })
 
 ;; Game State
 (defn make-ghost [color] 
@@ -37,21 +37,22 @@
   {:phase :waiting
    :dialog nil
    :countdown 4
+
    :user {:position nil
-          :direction const/LEFT
+          :old-pos nil
+          :direction :left
           :eaten 0
-          :due const/LEFT
           :lives 0
           :score 5
-          :npos nil
           :next-whole nil
-          :block nil
-          :old-pos nil}
-   :map {:height nil
-         :width nil
-         :pill-size 0 
-         :block-size nil
-         :board const/game-map}
+          :block nil}
+
+   :map { :height nil
+          :width nil
+          :pill-size 0 
+          :block-size nil
+          :board const/game-map}
+
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -79,7 +80,7 @@
             map-width (alength (aget const/game-map 0))
             map-height (alength const/game-map)
             x (/ (- (* map-width (:block-size map)) dialog-width) 2)]
-        (.fillText ctx dialog x (+ (* map-height 10) 8)) 
+        (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
   state)
 
@@ -131,10 +132,10 @@
 
 (defn calc-angle [dir pos]
   (cond
-    (and (= dir const/RIGHT) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
-    (and (= dir const/DOWN)  (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
-    (and (= dir const/UP)    (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
-    (and (= dir const/LEFT)  (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
+    (and (= dir :right) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
+    (and (= dir :down)  (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
+    (and (= dir :up)    (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
+    (and (= dir :left)  (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false}))
 
 ;; state - no longer returns state. Instead, return redraw-block.
@@ -146,9 +147,8 @@
     (draw-block state by bx bs)))
 
 (defn draw-pacman [{map :map user :user :as state}]
-  (helper/console-log user)
   (let [s        (:block-size map)
-        position (:npos user)
+        position (:position user)
         angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (doto ctx
@@ -207,11 +207,10 @@
                     (draw-pills)
                     (draw-dialog))]
     (if (= :playing (:phase state))
-      (do (-> new-state
-            (redraw-block)
-            (move-pacman)
-            (draw-pacman))
-        new-state)
+      (-> new-state
+        (redraw-block)
+        (move-pacman)
+        (draw-pacman))
       state)))
 
 ;; =============================================================================
@@ -261,7 +260,7 @@
       (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
         (do 
-          (assoc-in state [:user :due] (get controls kc)))
+          (assoc-in state [:user :direction] (get controls kc)))
         state))))
 
 (defn lose-life [state])
@@ -270,11 +269,9 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
-(defn is-on-same-plane? [due dir]
-  (or (and (or (= due const/LEFT) (= due const/RIGHT)) 
-           (or (= dir const/LEFT) (= dir const/RIGHT)))
-      (and (or (= due const/UP)   (= due const/DOWN)) 
-           (or (= dir const/UP)   (= dir const/DOWN)))))
+(defn is-on-same-plane? [dir]
+  (or (and (or (= dir :left) (= dir :right)))
+      (and (or (= dir :up)   (= dir :down)))))
 
 (defn on-whole-square? [p]
   (= (mod p 10) 0))
@@ -289,7 +286,7 @@
   (let [rem (mod n 10)]
     (cond
       (= rem 0) n
-      (or (= dir const/RIGHT) (= dir const/DOWN)) (+ n (- 10 rem))
+      (or (= dir :right) (= dir :down)) (+ n (- 10 rem))
       :else (- n rem))))
 
 (defn next-pos [pos dir]
@@ -301,10 +298,10 @@
     (or (> rem 3) (< rem 7))))
 
 ;; Also used for moving Pac-Man. Determines if he is facing a wall.
-(defn direction-allowable? [map due dir pos npos]
-  (and (or (is-on-same-plane? due dir) 
+(defn direction-allowable? [map dir pos]
+  (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
-    (is-floor-space? map (next-pos npos due))))
+    (is-floor-space? map (next-pos pos dir))))
 
 (defn map-pos [y x]
   (aget const/game-map y x))
@@ -399,54 +396,37 @@
 ;; ============================================================================================
 ;; Move Pac-Man
 
-(defn get-new-coord [dir pos]
-  (let [x (or (and (= dir const/LEFT) -2)
-              (and (= dir const/RIGHT) 2) 
-              0)
-        y (or (and (= dir const/DOWN) 2)
-              (and (= dir const/UP) -2) 
-              0)]
-    {:x (+ (:x pos) x)
-     :y (+ (:y pos) y)}))
+(defn get-new-coord [dir {x :x y :y}]
+  (case dir
+    :left  {:x (- x 2) :y y}
+    :right {:x (+ x 2) :y y}
+    :up    {:x x :y (- y 2)}
+    :down  {:x x :y (+ y 2)}
+    {:x x :y y}))
 
-(defn get-new-npos [due dir pos npos]
+(defn get-new-pos [dir pos]
   (cond 
-    (and (= (:y npos) 100) (>= (:x npos) 190) (= dir const/RIGHT)) {:y 100 :x -10}
-    (and (= (:y npos) 100) (<= (:x npos) -12) (= dir const/LEFT))  {:y 100 :x 190}
-    (= dir const/FACINGWALL) pos
-    :else (if-not (= due dir) 
-            (get-new-coord due pos)
-            (get-new-coord dir pos))))
+    (and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
+    (and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
+    (= dir :facing-wall) pos
+    :else (get-new-coord dir pos)))
 
-(defn facing-wall? [map pos npos dir]
-  (and (on-grid-square? pos) (is-wall-space? map (next-pos npos dir))))
+(defn facing-wall? [map pos dir]
+  (and (on-grid-square? pos) (is-wall-space? map (next-pos pos dir))))
 
-(defn get-new-direction [map due dir pos npos]
+(defn get-new-direction [map dir pos]
   (cond 
-    (facing-wall? map pos npos dir) const/FACINGWALL
-    (and (not= due dir) (direction-allowable? map due dir pos npos)) due
-    :else due))
-
-;; (defn move-pacman [{user :user map :map :as state}] 
-;;   (let [{due :due dir :direction
-;;          pos :position npos :npos} user]
-;;     (if (= (:phase state) :playing)
-;;       (-> state
-;;         (assoc-in [:user :npos] (get-new-npos due dir pos npos))
-;;         (assoc-in [:user :position] npos)
-;;         (assoc-in [:user :old-pos] pos)
-;;         (assoc-in [:user :direction] (get-new-direction map due dir pos npos))
-;;         (assoc-in [:user :due] dir)))))
+    (facing-wall? map pos dir) :facing-wall
+    (direction-allowable? map dir pos) dir
+    :else dir))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
-  (let [{due :due dir :direction
-         pos :position npos :npos} user]    
+  (let [{dir :direction
+         pos :position } user]    
     (if (= (:phase state) :playing)
-      { :npos      (get-new-npos due dir pos npos) 
-        :position  npos
+      { :position  (get-new-pos dir pos) 
         :old-pos   pos
-        :direction (get-new-direction map due dir pos npos)
-        :due       dir}
+        :direction (get-new-direction map dir pos)}
       user)))
 
 (defn move-pacman [state]
@@ -503,7 +483,7 @@
                     state
                     (update-in state [:tick] (fnil inc 0)))
                 (keydown)
-                ;(update-in [:user] pacman-move)
+                ;(update-in [:user] move-pacman)
 )]
     (main-draw
       (cond 
@@ -519,7 +499,6 @@
   (-> game-state
     (assoc :dialog "Press N to start a new game")
     (assoc-in [:user :position] {:x 90 :y 120})
-    (assoc-in [:user :npos] {:x 90 :y 120})
     (assoc-in [:map :width] 19)
     (assoc-in [:map :height] 22)
     (assoc-in [:map :block-size] 18)))
