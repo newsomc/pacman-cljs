@@ -76,9 +76,9 @@
     (do
       (set! (. ctx  -fillStyle) "#FFFF00")
       (set! (. ctx -font) "14px BDCartoonShoutRegular")
-      (let [dialog-width (.-width (.measureText ctx dialog))
-            map-width (alength (aget const/game-map 0))
-            map-height (alength const/game-map)
+      (let [dialog-width 22
+            map-width (count const/game-map)
+            map-height (count (get const/game-map 0))
             x (/ (- (* map-width (:block-size map)) dialog-width) 2)]
         (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
@@ -95,8 +95,8 @@
 
 (defn draw-footer [{map :map user :user :as state}]
   (let [block-size (:block-size map)
-        map-width (alength (aget const/game-map 0))
-        map-height (alength const/game-map)
+        map-width (count (get const/game-map 0))
+        map-height (count const/game-map)
         top-left (* map-height block-size)
         text-base (+ top-left 17)]
     (set! (. ctx -fillStyle) "#000000")
@@ -144,9 +144,11 @@
         bs (:block-size map)
         by (Math/floor (/ (:y pos) 10))
         bx (Math/floor (/ (:x pos) 10))]
-    (draw-block state by bx bs)))
+    (draw-block state by bx bs)
+    state))
 
 (defn draw-pacman [{map :map user :user :as state}]
+
   (let [s        (:block-size map)
         position (:position user)
         angle    (calc-angle (:direction user) position)]
@@ -200,6 +202,8 @@
         (draw-block state i j size)))
     state))
 
+(declare set-block-eaten)
+
 (defn main-draw [state]
   (let [new-state (-> state
                     (draw-map)
@@ -208,8 +212,9 @@
                     (draw-dialog))]
     (if (= :playing (:phase state))
       (-> new-state
-        (redraw-block)
         (move-pacman)
+        (set-block-eaten)
+        (redraw-block)
         (draw-pacman))
       state)))
 
@@ -304,7 +309,7 @@
     (is-floor-space? map (next-pos pos dir))))
 
 (defn map-pos [y x]
-  (aget const/game-map y x))
+  (get (get const/game-map y) x))
 
 (defn within-bounds? [map x y]
   (and (>= y 0) 
@@ -432,6 +437,20 @@
         :direction (get-new-direction map dir pos)}
       user)))
 
+(defn set-block [pos map type]
+  (let [row (get map (:y pos))
+        new-row (assoc row (:x pos) type)]
+    (assoc map (:y pos) new-row)))
+
+(defn set-block-eaten [{user :user map :map :as state}]
+  (let [ pos (:position user)
+         dir (:direction user)
+         {board :board} map
+         next-whole (next-pos pos dir)
+         new-board  (set-block next-whole board const/EMPTY)]
+    (helper/console-log next-whole)
+    (assoc-in state [:map :board] new-board)))
+
 (defn move-pacman [state]
   (update-in state [:user]
     (fn [user]
@@ -481,6 +500,7 @@
 ;; Main Game Loop
 
 (defn driver  [state]
+  (helper/console-log (:map state))
   (let [phase (:phase state)
         state (-> (if (= phase :pause) 
                     state
