@@ -1,5 +1,5 @@
 (ns pacman.game
-; (:require-macros [pacman.macros :as m])
+  ;;(:require-macros [pacman.macros :as m])
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [goog.dom :as dom]
@@ -17,6 +17,7 @@
                 (:ARROW_RIGHT const/KEYS) :right
                 (:ARROW_DOWN  const/KEYS) :down })
 
+;; ==========
 ;; Game State
 (defn make-ghost [color] 
   {:get-tick 0, 
@@ -25,9 +26,7 @@
    :eaten nil, 
    :specs color, 
    :position nil, 
-   :due nil, 
    :map nil, 
-   :npos nil,
    :old-pos nil,
    :direction nil})
 
@@ -37,7 +36,6 @@
   {:phase :waiting
    :dialog nil
    :countdown 4
-
    :user {:position nil
           :old-pos nil
           :direction :left
@@ -46,13 +44,11 @@
           :score 5
           :next-whole nil
           :block nil}
-
    :map { :height nil
           :width nil
           :pill-size 0 
           :block-size nil
           :board const/game-map}
-
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -69,7 +65,7 @@
    :n-score 0})
 
 ;; =============================================================================
-;; Draw Functions
+;; Draw game board
 
 (defn draw-dialog [{map :map dialog :dialog :as state}]
   (if dialog
@@ -126,6 +122,209 @@
     (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
+
+;; =============================================================================
+;; Ghost Logic
+
+(defn add-bounded 
+  "Collision detection."
+  [point speed]
+  (let [rem (mod point 10)
+        result (+ rem speed)]
+    (cond (and (not= rem 0 )(> result 10)) (+ point (- 10 rem))
+          (and (> rem 0) (< result 0)) (- point rem))
+    :else (+ point speed)))
+
+(defn is-vulnerable? [ghost]
+  (= (:eatable ghost) nil))
+
+(defn is-hidden? [ghost]
+  (and (= (:eatable ghost) nil)
+       (not= (:eaten ghost) nil)))
+
+(defn get-new-coord [ghost dir pos]
+  (let [speed (if (= (is-vulnerable? ghost) true) 
+                (if (is-hidden? ghost) 4 2))
+        x-speed (or 
+                  (and (= dir :left) (- speed))
+                  (and (= dir :right) speed) 
+                  0)
+        y-speed (or 
+                  (and (= dir :down) speed)
+                  (and (= dir :up) (- speed)) 
+                  0)]
+    {:x (add-bounded (:x pos) x-speed) 
+     :y (add-bounded (:y pos) y-speed)}))
+
+(defn is-dangerous? 
+  [ghost]
+  (= (:eaten ghost) nil))
+
+(defn get-random-direction [ghost]
+  (let [dir (if (or (= (:direction ghost) :left)
+                      (= (:direction ghost) :right))
+                :up
+                :down)]
+    dir))
+
+(defn on-whole-square? [x]
+  (= (mod x 10) 0))
+
+(defn opposite-direction 
+  "Send ghost scurrying off in the opposite direction."
+  [dir]
+  (condp = dir
+    :left :right
+    :right :left
+    :up :down
+    :up))
+
+;; =====================================================
+;; Various ghost states
+
+(defn init-ghost-state [ghost] 
+  {:eaten nil, 
+   :eatable nil, 
+   :position {:x 90, :y 80}
+   :direction (get-random-direction ghost)})
+
+(defn make-ghost-eatable [ghost state]
+  {:direction (opposite-direction (:direction ghost))
+   :eatable (:tick state)})
+
+;; Send ghosts home 
+(defn reset-ghosts [state fn-to-merge]
+  (update-in state [:ghosts]
+    (fn [ghosts]
+      (map #(merge % (fn-to-merge ghosts)) (:ghosts state)))))
+
+;; More ghost logic
+(defn eat [state]
+  (-> state
+    (assoc [:eatable] nil)
+    (assoc [:eaten] helper/get-tick))
+  state)
+
+(defn point-to-cord [x]
+  (.round js/Math (/ x 10)))
+
+(defn next-square 
+  [x dir]
+  (let [rem (mod x 10)]
+    (cond 
+     (= rem 0) x
+     (or (= dir :right) (= dir :down)) (+ x (- 10 rem))
+      :else (- x rem))))
+
+(defn on-grid-square? [pos]
+  (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
+
+(defn seconds-ago [tick]
+  (/ (- helper/get-tick tick) const/FPS))
+
+;; What is color? Need to define it!
+;; BROKEN
+(defn get-color [ghost]
+  (cond 
+   (not= (:eatable ghost) nil 
+     (if (> (seconds-ago (:eatable ghost)) 5)
+       (if (> (mod helper/get-tick 20) 10) "#FFFFFF" "#0000BB")))
+   (if (:eaten ghost) "#222")
+   :else (:color ghost)))
+
+(defn draw-ghosts [ghost]
+  (let [ position (:position ghost)
+         s (:block-size game-state)
+         eatable (:eatable ghost)
+         top (* (/ (:y (:position ghost)) 10) 2)
+         left (* (/ (:x (:postition ghost)) 10) 2)
+         tl (+ left s)
+         base (- (+ top s) 3)
+         inc (/ s 10)
+         high (if (> (mod helper/get-tick 10) 5) 3 -3)
+         low (if (> (mod helper/get-tick 10) 5) -3 3)
+         direction (:direction ghost)
+         f (/ s 12)
+         off {}]
+
+    (cond 
+      (and eatable (> (seconds-ago eatable) 8)) (assoc ghost :eatable nil)
+      (and eatable (> (seconds-ago eatable) 3)) (assoc ghost :eaten nil))
+    
+    (set! (. ctx -fillStyle) (:specs ghost))
+    ;(set! (. ctx -fillStyle) (get-color ghost))
+
+    (doto ctx
+      (.beginPath)
+      (.moveTo left base)
+
+      (.quadraticCurveTo left top (+ left (/ s 2)) top)
+      (.quadraticCurveTo (+ left s) top (+ left s) base)
+      (.quadraticCurveTo (- tl (* inc 1)) (+ base high) (- (* inc 2) tl) base)
+      (.quadraticCurveTo (- tl (* inc 3)) (+ base low)  (- (* inc 4) tl) base)
+      (.quadraticCurveTo (- tl (* inc 5)) (+ base high) (- (* inc 6) tl) base)
+      (.quadraticCurveTo (- tl (* inc 7)) (+ base low)  (- (* inc 8) tl) base)
+      (.quadraticCurveTo (- tl (* inc 9)) (+ base low)  (- (* inc 8) tl) base)
+      
+      (.closePath)
+      (.fill)
+      (.beginPath))
+    
+    (set! (. ctx -fillStyle) "#FFF")
+
+    (doto ctx
+      (.arc (+ left 6) (+ top 6) (/ s 6) 0 300 false)
+      (.arc (- (+ left s) 6) (+ top 6) (/ s 6) 0 300 false)
+      (.closePath)
+      (.fill))
+
+    (conj off {:right [f 0] :left [(- f)  0] :up [0 (- f)] :down [0 f]})
+
+    (.beginPath ctx)
+    (set! (. ctx -fillStyle) "#000")
+    (.arc ctx (+ left 6 (nth ((keyword direction) off) 0)) (+ left 6 (nth ((keyword direction) off) 1)) (/ s 15) 0 300 false)
+    (.arc ctx (+ (- (+ left s) 6) (nth ((keyword direction) off) 0)) (+ top 6 (nth ((keyword direction) off) 1)) (/ s 15) 0 300 false)
+    (.closePath ctx)
+    (.fill ctx)))
+
+(defn pane [pos dir]
+  (cond 
+   (and (= (:y pos) 100) (>= (:x pos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
+   (and (= (:y pos) 100) (<= (:x pos) -10) (= dir (:left const/game-const))) {:y 100 :x 190}))
+
+;; ====================================================
+;; Move ghost - experimental
+;; ====================================================
+
+(declare is-floor-space? point-to-coord)
+
+(defn get-npos [ghost]
+  (cond (nil? (:position ghost)) (get-new-coord ghost (:direction ghost) (:position ghost))
+        :else (get-new-coord ghost (:due ghost) (:position ghost))))
+
+(defn tmp-pos [ghost]
+  (if-let [tmp (pane (:position ghost) (:direction ghost))]
+           tmp))
+
+(defn change-direction [ghost]
+  (let [due (:direction ghost)
+        npos (get-new-coord ghost due (:position ghost))]
+    (cond 
+      (and (on-grid-square? (:position ghost)) 
+           (is-floor-space? {:y (point-to-coord (next-square (:y (:position ghost)) due)) 
+                             :x (point-to-coord (next-square (:x (:position ghost)) due))})) (:direction ghost))))
+
+(defn reset-ghost-direction [ghost] 
+  {:old-pos (:position ghost)
+   :position (if (nil? (tmp-pos ghost)) (:direction ghost) (tmp-pos ghost)) 
+   :direction (change-direction ghost)})
+
+(defn change-ghost-positions [ghost]
+  (merge-with merge ghost (reset-ghost-direction ghost)))
+
+;; This probably doesn't work.
+(defn move-ghosts [state]
+  (update-in state [:ghosts] #(map change-ghost-positions %)))
 
 ;; =============================================================================
 ;; Draw Pac-Man
@@ -210,7 +409,8 @@
       (-> new-state
         (redraw-block)
         (move-pacman)
-        (draw-pacman))
+        (draw-pacman)
+        (draw-ghosts))
       state)))
 
 ;; =============================================================================
@@ -272,12 +472,6 @@
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
-
-(defn on-whole-square? [p]
-  (= (mod p 10) 0))
-
-(defn on-grid-square? [pos]
-  (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
 
 (defn point-to-coord [n]
   (Math/round (/ n 10)))
