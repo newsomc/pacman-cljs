@@ -37,22 +37,19 @@
   {:phase :waiting
    :dialog nil
    :countdown 4
-
    :user {:position nil
           :old-pos nil
           :direction :left
           :eaten 0
-          :lives 0
-          :score 5
+          :lives 3
+          :score 0
           :next-whole nil
           :block nil}
-
    :map { :height nil
           :width nil
           :pill-size 0 
           :block-size nil
           :board const/game-map}
-
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -77,8 +74,8 @@
       (set! (. ctx  -fillStyle) "#FFFF00")
       (set! (. ctx -font) "14px BDCartoonShoutRegular")
       (let [dialog-width (.-width (.measureText ctx dialog))
-            map-width 19;;(count const/game-map)
-            map-height 22;;(count (get const/game-map 0))
+            map-width 19
+            map-height 22
             x (/ (- (* map-width (:block-size map)) dialog-width) 2)]
         (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
@@ -405,6 +402,22 @@
 ;; ============================================================================================
 ;; Move Pac-Man
 
+(defn block [map pos]
+  (board-pos map (:y pos) (:x pos)))
+
+(defn add-score [{user :user map :map :as state}]
+  (let [score (:score user)
+        {pos :position dir :direction} user
+        next-whole (next-pos pos dir)
+        block-pos (block map next-whole)
+        nscore (if (= block-pos const/BISCUIT) 10 50)
+        s (-> state
+            (assoc-in [:user :score] (+ nscore (:score user))))]
+    (if (and (>= score 10000) (< (- (:score user) nscore) 10000))
+      (-> s
+        (update-in [:user :lives] (fnil inc 0)))
+      s)))
+
 (defn get-new-coord [dir {x :x y :y}]
   (case dir
     :left  {:x (- x 2) :y y}
@@ -428,23 +441,21 @@
     (facing-wall? map pos dir) :facing-wall
     (direction-allowable? map dir pos) dir))
 
-(defn block [map pos]
-  (board-pos map (:y pos) (:x pos)))
-
 (defn set-block [pos map type]
   (let [row (get map (:y pos))
         new-row (assoc row (:x pos) type)]
     (assoc map (:y pos) new-row)))
 
 (defn set-block-eaten [{user :user map :map :as state}]
-  (let [{pos :position
-          dir :direction} user
-         {board :board} map
-         next-whole (next-pos pos dir)
-         block-pos (block map next-whole)]
-    (if (= block-pos const/BISCUIT)
+  (let [{pos :position dir :direction} user
+        {board :board} map
+        next-whole (next-pos pos dir)
+        block-pos (block map next-whole)]
+    (if (= block-pos const/BISCUIT)      
       (-> state 
-        (assoc-in [:map :board] (set-block next-whole board const/EMPTY)))
+        (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
+        (update-in [:user :eaten] (fnil inc 0))
+        (add-score))      
       state)))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
