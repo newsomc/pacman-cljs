@@ -186,9 +186,7 @@
 
 (declare draw-wall draw-block is-floor-space? move-pacman)
 
-(defn draw-map
-  "Main draw function for game board."
-  [{map :map :as state}]
+(defn draw-map [{map :map :as state}]
   (set! (. ctx  -fillStyle) "#000")
   (let [width  (:width map)
         height (:height map)
@@ -410,7 +408,7 @@
         {pos :position dir :direction} user
         next-whole (next-pos pos dir)
         block-pos (block map next-whole)
-        nscore (if (= block-pos const/BISCUIT) 10 50)
+        nscore (if (= block-pos const/BISCUIT) 0 10)
         s (-> state
             (assoc-in [:user :score] (+ nscore (:score user))))]
     (if (and (>= score 10000) (< (- (:score user) nscore) 10000))
