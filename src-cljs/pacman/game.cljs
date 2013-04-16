@@ -9,7 +9,6 @@
 
 ;; =============================================================================
 ;; Definitions
-
 (def canvas (.getElementById js/document "canvas"))
 (def ctx (.getContext canvas "2d"))
 (def controls { (:ARROW_LEFT  const/KEYS) :left
@@ -83,7 +82,7 @@
 (defn draw-score 
   [{map :map :as state} text position]
   (set! (. ctx  -fillStyle) "#FFFFFF")
-  (set! (. ctx -font) "12px BDCartoonShoutRegular")
+ (set! (. ctx -font) "12px BDCartoonShoutRegular")
   (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
   state)
 
@@ -115,10 +114,8 @@
 
     (set! (. ctx -font) "bold 16px sans-serif")
     (.fillText ctx "s" 10 text-base)
-    
     (set! (. ctx -fillStyle) "#FFFF00")
     (set! (. ctx -font) "14px BDCartoonShoutRegular")
-    
     (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
@@ -180,15 +177,15 @@
     :up))
 
 ;; =====================================================
-;; Various ghost states
+;; Ghost states
 
-(defn init-ghost-state [ghost] 
+(defn ghost-init-state [ghost] 
   {:eaten nil, 
    :eatable nil, 
    :position {:x 90, :y 80}
    :direction (get-random-direction ghost)})
 
-(defn make-ghost-eatable [ghost state]
+(defn ghost-eatable-state [ghost state]
   {:direction (opposite-direction (:direction ghost))
    :eatable (:tick state)})
 
@@ -222,7 +219,6 @@
 (defn seconds-ago [tick]
   (/ (- helper/get-tick tick) const/FPS))
 
-;; What is color? Need to define it!
 ;; BROKEN
 (defn get-color [ghost]
   (cond 
@@ -413,7 +409,7 @@
         (move-pacman)
         (set-block-eaten)
         (redraw-block)
-        (draw-ghosts))
+        ;(draw-ghosts)
         (draw-pacman))
       state)))
 
@@ -657,7 +653,7 @@
   (let [{dir :direction
          pos :position } user]    
     (if (= (:phase state) :playing)
-      { :position  (get-new-pos dir pos) 
+      { :position  (if-not (= dir :facing-wall) (get-new-pos dir pos) pos) 
         :old-pos   pos
         :direction (get-new-direction map dir pos)}
       user)))
