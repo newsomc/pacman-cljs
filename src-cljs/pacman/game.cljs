@@ -290,13 +290,11 @@
       (or (= dir :right) (= dir :down)) (+ n (- 10 rem))
       :else (- n rem))))
 
+
 (defn next-pos [pos dir]
   {:y (point-to-coord (next-square (:y pos) dir))
    :x (point-to-coord (next-square (:x pos) dir))})
 
-(defn is-mid-square? [x]
-  (let [rem (mod x 10)]
-    (or (> rem 3) (< rem 7))))
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
 (defn direction-allowable? [map dir pos]
