@@ -40,6 +40,7 @@
    :user {:position nil
           :old-pos nil
           :direction :left
+          :due nil
           :speed 2
           :eaten 0
           :lives 3
@@ -448,7 +449,7 @@
 (defn facing-wall? [map pos dir]
   (and (on-grid-square? pos) (is-wall-space? map (next-pos pos dir))))
 
-(defn get-new-direction [map dir pos]
+(defn get-new-direction [map due dir pos]
   (cond 
     (facing-wall? map pos dir) :facing-wall
     (direction-allowable? map dir pos) dir  
@@ -490,8 +491,8 @@
 )
 
 (defn refresh-user-data [{user :user map :map :as state}] 
-  (let [{dir :direction pos :position } user
-         ndir (get-new-direction map dir pos)
+  (let [{dir :direction pos :position due :due} user
+         ndir (get-new-direction map due dir pos)
          ]    
     (if (= (:phase state) :playing)
       { :position  (get-new-pos ndir (normalize-position dir pos) (:speed user)) 
