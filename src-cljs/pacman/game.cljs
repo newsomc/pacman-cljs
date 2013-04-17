@@ -281,9 +281,10 @@
   (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
 
 
-; Using these two functions to do wall-checking.
-(defn good-point-to-coord [{x :x y :y }]
-  {:x (Math/round (/ x 10)) :y (Math/round (/ y 10))}
+(defn point-val-to-coord [n] (Math/round (/ n 10)))
+
+(defn point-to-coord [{x :x y :y }]
+  {:x (point-val-to-coord x) :y (point-val-to-coord y)}
 )
 
 (defn next-coord [{x :x y :y} dir]
@@ -296,9 +297,6 @@
 ) 
 
 
-(defn point-to-coord [n]
-  (Math/round (/ n 10)))
-
 (defn next-square [n dir]
   (let [rem (mod n 10)]
     (cond
@@ -308,15 +306,16 @@
 
 
 (defn next-pos [pos dir]
-  {:y (point-to-coord (next-square (:y pos) dir))
-   :x (point-to-coord (next-square (:x pos) dir))})
+  {:y (point-val-to-coord (next-square (:y pos) dir))
+   :x (point-val-to-coord (next-square (:x pos) dir))})
 
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
+;; this may be doing too many things at once.
 (defn direction-allowable? [map dir pos]
   (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
-    (is-floor-space? map (next-coord (good-point-to-coord pos) dir))))
+    (is-floor-space? map (next-coord (point-to-coord pos) dir))))
 
 (defn map-pos [y x]
   (get (get const/game-map y) x))
@@ -476,16 +475,16 @@
 ;; Ensure that the direction pacman is not moving is divisible by 10.
 
 
-(defn round-10 [n]
+(defn nearest-10 [n]
   (* 10 (Math/round (/ n 10)))
 )
 
 (defn normalize-position [dir {x :x y :y}]
   (case dir 
-    :left {:x x :y (round-10 y)}    
-    :right {:x x :y (round-10 y)}    
-    :up {:x (round-10 x) :y y}
-    :down {:x (round-10 x) :y y}
+    :left {:x x :y (nearest-10 y)}    
+    :right {:x x :y (nearest-10 y)}    
+    :up {:x (nearest-10 x) :y y}
+    :down {:x (nearest-10 x) :y y}
     {:x x :y y})
 )
 
