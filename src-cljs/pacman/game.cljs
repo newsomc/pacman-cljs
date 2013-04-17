@@ -260,8 +260,7 @@
       (:S const/KEYS) (.setItem (.-localStorage (dom/getWindow)) "sound-disabled" false)
       (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
-        (do 
-          (assoc-in state [:user :direction] (get controls kc)))
+        (assoc-in state [:user :direction] (get controls kc))
         state))))
 
 (defn lose-life [state])
@@ -270,7 +269,7 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
-(defn is-on-same-plane? [dir]
+(defn is-on-same-plane? [{user :user :as state} dir]
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
 
@@ -300,8 +299,10 @@
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
 (defn direction-allowable? [map dir pos]
-  (and (or (is-on-same-plane? dir) 
-           (on-grid-square? pos)) 
+  #_(or (is-on-same-plane? dir) 
+      (on-grid-square? pos))
+  (and 
+    (on-grid-square? pos)
     (is-floor-space? map (next-pos pos dir))))
 
 (defn map-pos [y x]
@@ -416,15 +417,24 @@
         (update-in [:user :lives] (fnil inc 0)))
       s)))
 
-(defn get-new-coord [dir {x :x y :y}]
-  (case dir
-    :left  {:x (- x 2) :y y}
-    :right {:x (+ x 2) :y y}
-    :up    {:x x :y (- y 2)}
-    :down  {:x x :y (+ y 2)}
-    {:x x :y y}))
 
-(defn get-new-pos [dir pos]
+(defn round-10 [val]
+  (* 10 (Math/round (/ val 10))))
+
+(defn easy-round [dir {x :x y :y :as pos}]
+  (cond (or (= dir :right) (= dir :left)) {:x x :y (round-10 y)}
+        (or (= dir :up) (= dir :down)) {:x (round-10 x) :y y})
+        :else {:x x :y y})
+
+(defn get-new-coord [dir {x :x y :y :as pos}]
+  (case dir
+      :left  {:x (- x 2) :y y}
+      :right {:x (+ x 2) :y y}
+      :up    {:x x :y (- y 2)}
+      :down  {:x x :y (+ y 2)}
+      {:x x :y y}))
+
+(defn get-new-pos [dir {x :x y :y :as pos}]
   (cond 
     (and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
     (and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
