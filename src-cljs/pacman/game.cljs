@@ -40,6 +40,7 @@
    :user {:position nil
           :old-pos nil
           :direction :left
+          :speed 2
           :eaten 0
           :lives 3
           :score 0
@@ -429,20 +430,20 @@
         (update-in [:user :lives] (fnil inc 0)))
       s)))
 
-(defn get-new-coord [dir {x :x y :y}]
+(defn get-new-coord [dir {x :x y :y} speed]
   (case dir
-    :left  {:x (- x 2) :y y}
-    :right {:x (+ x 2) :y y}
-    :up    {:x x :y (- y 2)}
-    :down  {:x x :y (+ y 2)}
+    :left  {:x (- x speed) :y y}
+    :right {:x (+ x speed) :y y}
+    :up    {:x x :y (- y speed)}
+    :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
-(defn get-new-pos [dir pos]
+(defn get-new-pos [dir pos speed]
   (cond 
     (and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
     (and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
     (= dir :facing-wall) pos
-    :else (get-new-coord dir pos)))
+    :else (get-new-coord dir pos speed)))
 
 (defn facing-wall? [map pos dir]
   (and (on-grid-square? pos) (is-wall-space? map (next-pos pos dir))))
@@ -493,7 +494,7 @@
          ndir (get-new-direction map dir pos)
          ]    
     (if (= (:phase state) :playing)
-      { :position  (get-new-pos ndir (normalize-position dir pos)) 
+      { :position  (get-new-pos ndir (normalize-position dir pos) (:speed user)) 
         :old-pos   pos
         :direction ndir}
       user)))
