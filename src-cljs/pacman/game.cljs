@@ -314,7 +314,7 @@
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
 (defn direction-allowable? [map dir pos]
-  (helper/console-log (next-coord (good-point-to-coord pos) dir))
+  ;(helper/console-log (next-coord (good-point-to-coord pos) dir))
   (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
     (is-floor-space? map (next-coord (good-point-to-coord pos) dir))))
@@ -471,11 +471,31 @@
         (add-score))      
       state)))
 
+
+;; Ensure that the direction pacman is not moving is divisible by 10.
+
+
+(defn round-10 [n]
+  (* 10 (Math/round (/ n 10)))
+)
+
+(defn normalize-position [dir {x :x y :y}]
+  (case dir 
+    :left {:x x :y (round-10 y)}    
+    :right {:x x :y (round-10 y)}    
+    :up {:x (round-10 x) :y y}
+    :down {:x (round-10 x) :y y}
+    {:x x :y y})
+)
+
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{dir :direction
          pos :position } user]    
+  (helper/console-log dir)
+  (helper/console-log (normalize-position dir pos))
+
     (if (= (:phase state) :playing)
-      { :position  (get-new-pos dir pos) 
+      { :position  (get-new-pos dir (normalize-position dir pos)) 
         :old-pos   pos
         :direction (get-new-direction map dir pos)}
       user)))
