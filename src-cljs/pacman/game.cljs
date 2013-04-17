@@ -280,6 +280,22 @@
 (defn on-grid-square? [pos]
   (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
 
+
+; Using these two functions to do wall-checking.
+(defn good-point-to-coord [{x :x y :y }]
+  {:x (Math/round (/ x 10)) :y (Math/round (/ y 10))}
+)
+
+(defn next-coord [{x :x y :y} dir]
+  (case dir
+    :left { :x (- x 1) :y y }
+    :right { :x (+ x 1) :y y }
+    :up { :x x :y (- y 1) }
+    :down { :x x :y (+ y 1) }
+    {:x x :y y})
+) 
+
+
 (defn point-to-coord [n]
   (Math/round (/ n 10)))
 
@@ -298,9 +314,10 @@
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
 (defn direction-allowable? [map dir pos]
+  (helper/console-log (next-coord (good-point-to-coord pos) dir))
   (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
-    (is-floor-space? map (next-pos pos dir))))
+    (is-floor-space? map (next-coord (good-point-to-coord pos) dir))))
 
 (defn map-pos [y x]
   (get (get const/game-map y) x))
