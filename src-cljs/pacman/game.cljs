@@ -430,10 +430,11 @@
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
-(defn get-new-pos [dir pos speed]
+(defn get-new-pos [dir {x :x y :y :as pos} speed]
+  (helper/console-log pos)
   (cond 
-    ;(and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
-    ;(and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
+    (and (= y 100) (= x 176) (= dir :right)) {:y 100 :x -10}
+    (and (= y 100) (= x 4) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
 
 (defn get-new-direction [map due dir pos]
