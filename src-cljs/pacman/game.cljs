@@ -42,10 +42,9 @@
           :direction nil
           :due :left
           :speed 2
-          :eaten 0
           :lives 3
+          :eaten 0
           :score 0
-          :next-whole nil
           :block nil}
    :map { :height nil
           :width nil
@@ -55,7 +54,6 @@
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
-   :eaten-count 0
    :level 0
    :tick 0
    :ghost-pos []
@@ -447,16 +445,15 @@
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
 
-
 (defn set-eaten [{user :user map :map :as state} type points]
   (let [{pos :position dir :direction} user
         {board :board} map
-        next-whole (next-pos pos dir)
-        block-pos (block map next-whole)]
+        coord (point-to-coord pos)
+        block-pos (block map coord)]
     (if (= block-pos type)      
       (-> state 
-        (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
-        (update-in [:user :eaten] (fnil inc 0)) ; could remove user-eaten by checking board state for no pills/biscuits.
+        (assoc-in [:map :board] (set-block coord board const/EMPTY))
+        (update-in [:user :eaten] (fnil inc 0)) 
         (add-score points))      
       state)))
 
@@ -531,7 +528,7 @@
 (defn eaten-pill [state]
   (-> state
     (assoc :timer-start (:tick state))
-    (assoc :eaten-count 0)))
+    ))
 
 ;; ============================================================================================
 ;; Main Game Loop
