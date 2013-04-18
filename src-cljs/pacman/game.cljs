@@ -481,7 +481,7 @@
   (let [{dir :direction pos :position 
          due :due speed :speed} user
          ndir (get-new-direction map due dir pos)
-         npos (get-new-pos ndir (normalize-position dir pos) speed)]    
+         npos (get-new-pos dir (normalize-position dir pos) speed)]    
     (if (= (:phase state) :playing)
       { :position  npos
         :old-pos   pos
