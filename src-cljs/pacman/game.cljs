@@ -39,8 +39,8 @@
    :countdown 4
    :user {:position nil
           :old-pos nil
-          :direction :left
-          :due nil
+          :direction nil
+          :due :left
           :speed 2
           :eaten 0
           :lives 3
@@ -263,7 +263,7 @@
       (:P const/KEYS) (toggle-pause state)
       (if (and kc (not= (:phase state) :pause))
         (do 
-          (assoc-in state [:user :direction] (get controls kc)))
+          (assoc-in state [:user :due] (get controls kc)))
         state))))
 
 (defn lose-life [state])
@@ -452,8 +452,9 @@
 
 (defn get-new-direction [map due dir pos]
   (cond 
+    (and dir (is-wall-space? map (next-coord (point-to-coord pos) due)) (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
     (facing-wall? map pos dir) :facing-wall
-    (direction-allowable? map dir pos) dir  
+    (direction-allowable? map due pos) due
     :else nil 
     ))
 
