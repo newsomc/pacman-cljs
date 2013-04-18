@@ -200,7 +200,7 @@
         (draw-block state i j size)))
     state))
 
-(declare set-block-eaten)
+(declare set-block-eaten set-pill-eaten)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -212,6 +212,7 @@
       (-> new-state
         (move-pacman)
         (set-block-eaten)
+        (set-pill-eaten)
         (redraw-block)
         (draw-pacman))
       state)))
@@ -362,7 +363,7 @@
         block-size (:block-size map)]
     (doseq [i (range height)]
       (doseq [j (range width)]
-        (if (= (map-pos i j) const/PILL)
+        (if (= (board-pos map i j) const/PILL)
           (do
             (.beginPath ctx)
             (set! (. ctx -fillStyle) "#000")
@@ -411,18 +412,12 @@
   [map {x :x y :y}]
   (board-pos map y x))
 
-(defn add-score [{user :user map :map :as state}]
+(defn add-score [{user :user map :map :as state} points]
   (let [score (:score user)
-        {pos :position dir :direction} user
-        next-whole (next-pos pos dir)
-        block-pos (block map next-whole)
-        nscore (if (= block-pos const/BISCUIT) 0 10)
-        s (-> state
-            (assoc-in [:user :score] (+ nscore (:score user))))]
-    (if (and (>= score 10000) (< (- (:score user) nscore) 10000))
-      (-> s
-        (update-in [:user :lives] (fnil inc 0)))
-      s)))
+        new-score (assoc-in state [:user :score] (+ points score))]
+    (if (and (>= score 10000) (< (- score points) 10000))
+      (update-in new-score [:user :lives] inc)
+      new-score)))
 
 ;; ============================================================================================
 ;; Move Pac-Man
@@ -440,7 +435,6 @@
     ;(and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
     ;(and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
-
 
 (defn get-new-direction [map due dir pos]
   (cond 
@@ -461,7 +455,19 @@
       (-> state 
         (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
         (update-in [:user :eaten] (fnil inc 0))
-        (add-score))      
+        (add-score 10))      
+      state)))
+
+(defn set-pill-eaten [{user :user map :map :as state}]
+  (let [{pos :position dir :direction} user
+        {board :board} map
+        next-whole (next-pos pos dir)
+        block-pos (block map next-whole)]
+    (if (= block-pos const/PILL)      
+      (-> state 
+        (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
+        (update-in [:user :eaten] (fnil inc 0))
+        (add-score 50))      
       state)))
 
 (defn nearest-10 [n]
