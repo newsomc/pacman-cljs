@@ -437,8 +437,8 @@
 
 (defn get-new-pos [dir pos speed]
   (cond 
-    (and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
-    (and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
+    ;(and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
+    ;(and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
 
 
@@ -478,14 +478,15 @@
     {:x x :y y}))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
-  (let [{dir :direction pos :position due :due} user
-        ndir (get-new-direction map due dir pos)]    
-    (helper/console-log pos)
+  (let [{dir :direction pos :position 
+         due :due speed :speed} user
+         ndir (get-new-direction map due dir pos)
+         npos (get-new-pos ndir (normalize-position dir pos) speed)]    
     (if (= (:phase state) :playing)
-      { :position  (get-new-pos ndir (normalize-position dir pos) (:speed user)) 
+      { :position  npos
         :old-pos   pos
         :direction ndir}
-      user)))
+      {})))
 
 (defn move-pacman [state]
   (update-in state [:user]
