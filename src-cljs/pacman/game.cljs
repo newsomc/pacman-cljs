@@ -449,10 +449,8 @@
              (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
     (direction-allowable? map due pos) due))
 
-(defn set-block [{x :x y :y} map type]
-  (let [row (get map y)
-        new-row (assoc row x type)]
-    (assoc map y new-row)))
+(defn set-block [{x :x y :y} map type] 
+  (assoc-in map [y x] type))
 
 (defn set-block-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
