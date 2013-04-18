@@ -245,9 +245,9 @@
     (assoc :phase :playing)))
 
 (defn pause-game [state]
-    (-> state
-      (assoc :dialog "Paused")
-      (assoc :phase :pause)))
+  (-> state
+    (assoc :dialog "Paused")
+    (assoc :phase :pause)))
 
 (defn toggle-pause [state]
   (if (= (:phase state) :pause)
@@ -272,7 +272,7 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
-;; is this still needed? - clint
+;; Is this still needed? - Clint
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
@@ -442,19 +442,18 @@
              (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
     (direction-allowable? map due pos) due))
 
-
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
 
+;; reset pacman to orig pos code for reseting ghosts
 (defn set-next-level [{level :level map :map :as state}]
-  (helper/console-log level)
   (if (board-empty? (:board map))
     (-> state
       (update-in [:level] inc)
       (assoc-in [:map :board] const/game-map)
-      ;; reset pacman to orig pos
-      ;; code for reseting ghosts
-) state))
+      (assoc-in [:user :position] {:x 90 :y 120})
+      (assoc :phase :countdown))
+    state))
 
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
@@ -541,8 +540,7 @@
  
 (defn eaten-pill [state]
   (-> state
-    (assoc :timer-start (:tick state))
-    ))
+    (assoc :timer-start (:tick state))))
 
 ;; ============================================================================================
 ;; Main Game Loop
@@ -552,9 +550,7 @@
         state (-> (if (= phase :pause) 
                     state
                     (update-in state [:tick] (fnil inc 0)))
-                (keydown)
-                ;(update-in [:user] move-pacman)
-)]
+                (keydown))]
     (main-draw
       (cond 
         (= phase :playing) state;(game-playing state)
