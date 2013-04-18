@@ -272,6 +272,7 @@
   (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
                    (Math/pow (- (:y ghost) (:y user)) 2))) 10))
 
+;; is this still needed? - clint
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
@@ -279,16 +280,14 @@
 (defn on-whole-square? [n]
   (= (mod n 10) 0))
 
-
 (defn on-grid-square? [{x :x y :y }]
   (and (on-whole-square? y) (on-whole-square? x)))
 
-
-(defn point-val-to-coord [n] (Math/round (/ n 10)))
+(defn point-val-to-coord [n] 
+  (Math/round (/ n 10)))
 
 (defn point-to-coord [{x :x y :y }]
-  {:x (point-val-to-coord x) :y (point-val-to-coord y)}
-)
+  {:x (point-val-to-coord x) :y (point-val-to-coord y)})
 
 (defn next-coord [{x :x y :y} dir]
   (case dir
@@ -296,9 +295,7 @@
     :right { :x (+ x 1) :y y }
     :up { :x x :y (- y 1) }
     :down { :x x :y (+ y 1) }
-    {:x x :y y})
-) 
-
+    {:x x :y y})) 
 
 (defn next-square [n dir]
   (let [rem (mod n 10)]
@@ -307,14 +304,12 @@
       (or (= dir :right) (= dir :down)) (+ n (- 10 rem))
       :else (- n rem))))
 
-
 (defn next-pos [{x :x y :y} dir]
   {:y (point-val-to-coord (next-square y dir))
    :x (point-val-to-coord (next-square x dir))})
 
-
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
-;; this may be doing too many things at once.
+;; Could be doing too many things at once...
 (defn direction-allowable? [map dir pos]
   (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
@@ -327,10 +322,8 @@
   (get (get (:board map) y) x))
 
 (defn within-bounds? [map x y]
-  (and (>= y 0) 
-       (< y (:height map)) 
-       (>= x 0) 
-       (< x (:width map))))
+  (and (>= y 0) (< y (:height map)) 
+       (>= x 0) (< x (:width map))))
 
 (defn is-wall-space? [map {x :x y :y}]
   (and (within-bounds? map x y) 
@@ -413,10 +406,9 @@
         (.closePath ctx)))
     state))
 
-;; ============================================================================================
-;; Move Pac-Man
-
-(defn block [map {x :x y :y}]
+(defn block 
+  "Turns x and y coordinates into tile value in the game board."
+  [map {x :x y :y}]
   (board-pos map y x))
 
 (defn add-score [{user :user map :map :as state}]
@@ -431,6 +423,9 @@
       (-> s
         (update-in [:user :lives] (fnil inc 0)))
       s)))
+
+;; ============================================================================================
+;; Move Pac-Man
 
 (defn get-new-coord [dir {x :x y :y} speed]
   (case dir
@@ -452,11 +447,11 @@
 
 (defn get-new-direction [map due dir pos]
   (cond 
-    (and dir (is-wall-space? map (next-coord (point-to-coord pos) due)) (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
+    (and dir (is-wall-space? map 
+             (next-coord (point-to-coord pos) due)) 
+             (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
     (facing-wall? map pos dir) :facing-wall
-    (direction-allowable? map due pos) due
-    :else nil 
-    ))
+    (direction-allowable? map due pos) due))
 
 (defn set-block [{x :x y :y} map type]
   (let [row (get map y)
@@ -475,13 +470,8 @@
         (add-score))      
       state)))
 
-
-;; Ensure that the direction pacman is not moving is divisible by 10.
-
-
 (defn nearest-10 [n]
-  (* 10 (Math/round (/ n 10)))
-)
+  (* 10 (Math/round (/ n 10))))
 
 (defn normalize-position [dir {x :x y :y}]
   (case dir 
@@ -489,13 +479,12 @@
     :right {:x x :y (nearest-10 y)}    
     :up {:x (nearest-10 x) :y y}
     :down {:x (nearest-10 x) :y y}
-    {:x x :y y})
-)
+    {:x x :y y}))
 
 (defn refresh-user-data [{user :user map :map :as state}] 
   (let [{dir :direction pos :position due :due} user
-         ndir (get-new-direction map due dir pos)
-         ]    
+        ndir (get-new-direction map due dir pos)]    
+    (helper/console-log pos)
     (if (= (:phase state) :playing)
       { :position  (get-new-pos ndir (normalize-position dir pos) (:speed user)) 
         :old-pos   pos
