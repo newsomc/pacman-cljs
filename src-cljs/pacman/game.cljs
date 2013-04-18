@@ -439,18 +439,14 @@
   (cond 
     (and (= (:y pos) 100) (>= (:x pos) 190) (= dir :right)) {:y 100 :x -10}
     (and (= (:y pos) 100) (<= (:x pos) -12) (= dir :left))  {:y 100 :x 190}
-    (= dir :facing-wall) pos
     :else (get-new-coord dir pos speed)))
 
-(defn facing-wall? [map pos dir]
-  (and (on-grid-square? pos) (is-wall-space? map (next-pos pos dir))))
 
 (defn get-new-direction [map due dir pos]
   (cond 
     (and dir (is-wall-space? map 
              (next-coord (point-to-coord pos) due)) 
              (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
-    (facing-wall? map pos dir) :facing-wall
     (direction-allowable? map due pos) due))
 
 (defn set-block [{x :x y :y} map type]
