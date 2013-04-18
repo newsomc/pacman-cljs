@@ -198,7 +198,7 @@
         (draw-block state i j size)))
     state))
 
-(declare set-biscuit-eaten set-pill-eaten)
+(declare set-biscuit-eaten set-pill-eaten set-next-level)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -212,7 +212,8 @@
         (set-biscuit-eaten)
         (set-pill-eaten)
         (redraw-block)
-        (draw-pacman))
+        (draw-pacman)
+        (set-next-level))
       state)))
 
 ;; =============================================================================
@@ -429,10 +430,9 @@
     {:x x :y y}))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
-  (helper/console-log pos)
   (cond 
-    (and (= y 100) (= x 176) (= dir :right)) {:y 100 :x -10}
-    (and (= y 100) (= x 4) (= dir :left))  {:y 100 :x 190}
+    (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
+    (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
 
 (defn get-new-direction [map due dir pos]
@@ -441,6 +441,20 @@
              (next-coord (point-to-coord pos) due)) 
              (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
     (direction-allowable? map due pos) due))
+
+
+(defn board-empty? [board]
+  (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
+
+(defn set-next-level [{level :level map :map :as state}]
+  (helper/console-log level)
+  (if (board-empty? (:board map))
+    (-> state
+      (update-in [:level] inc)
+      (assoc-in [:map :board] const/game-map)
+      ;; reset pacman to orig pos
+      ;; code for reseting ghosts
+) state))
 
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
@@ -549,6 +563,7 @@
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
         (= phase :dying) (game-dying state)
         (= phase :countdown) (game-countdown state)
+        (= phase :next-level) (start-game state) 
         :else state))))
 
 (defn make-state []
