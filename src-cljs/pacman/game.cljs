@@ -276,11 +276,12 @@
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
 
-(defn on-whole-square? [p]
-  (= (mod p 10) 0))
+(defn on-whole-square? [n]
+  (= (mod n 10) 0))
 
-(defn on-grid-square? [pos]
-  (and (on-whole-square? (:y pos)) (on-whole-square? (:x pos))))
+
+(defn on-grid-square? [{x :x y :y }]
+  (and (on-whole-square? y) (on-whole-square? x)))
 
 
 (defn point-val-to-coord [n] (Math/round (/ n 10)))
@@ -307,9 +308,9 @@
       :else (- n rem))))
 
 
-(defn next-pos [pos dir]
-  {:y (point-val-to-coord (next-square (:y pos) dir))
-   :x (point-val-to-coord (next-square (:x pos) dir))})
+(defn next-pos [{x :x y :y} dir]
+  {:y (point-val-to-coord (next-square y dir))
+   :x (point-val-to-coord (next-square x dir))})
 
 
 ;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
@@ -331,13 +332,13 @@
        (>= x 0) 
        (< x (:width map))))
 
-(defn is-wall-space? [map pos]
-  (and (within-bounds? map (:x pos) (:y pos)) 
-       (= const/WALL (board-pos map (:y pos) (:x pos)))))
+(defn is-wall-space? [map {x :x y :y}]
+  (and (within-bounds? map x y) 
+       (= const/WALL (board-pos map y x))))
 
-(defn is-floor-space? [map pos]
-  (if (within-bounds? map (:x pos) (:y pos))
-    (let [piece (board-pos map (:y pos) (:x pos))]
+(defn is-floor-space? [map {x :x y :y}]
+  (if (within-bounds? map x y)
+    (let [piece (board-pos map y x)]
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
@@ -415,8 +416,8 @@
 ;; ============================================================================================
 ;; Move Pac-Man
 
-(defn block [map pos]
-  (board-pos map (:y pos) (:x pos)))
+(defn block [map {x :x y :y}]
+  (board-pos map y x))
 
 (defn add-score [{user :user map :map :as state}]
   (let [score (:score user)
@@ -456,10 +457,10 @@
     :else nil 
     ))
 
-(defn set-block [pos map type]
-  (let [row (get map (:y pos))
-        new-row (assoc row (:x pos) type)]
-    (assoc map (:y pos) new-row)))
+(defn set-block [{x :x y :y} map type]
+  (let [row (get map y)
+        new-row (assoc row x type)]
+    (assoc map y new-row)))
 
 (defn set-block-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
