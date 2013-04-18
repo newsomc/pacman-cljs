@@ -200,7 +200,7 @@
         (draw-block state i j size)))
     state))
 
-(declare set-block-eaten set-pill-eaten)
+(declare set-biscuit-eaten set-pill-eaten)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -211,7 +211,7 @@
     (if (= :playing (:phase state))
       (-> new-state
         (move-pacman)
-        (set-block-eaten)
+        (set-biscuit-eaten)
         (set-pill-eaten)
         (redraw-block)
         (draw-pacman))
@@ -446,29 +446,24 @@
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
 
-(defn set-block-eaten [{user :user map :map :as state}]
+
+(defn set-eaten [{user :user map :map :as state} type points]
   (let [{pos :position dir :direction} user
         {board :board} map
         next-whole (next-pos pos dir)
         block-pos (block map next-whole)]
-    (if (= block-pos const/BISCUIT)      
+    (if (= block-pos type)      
       (-> state 
         (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
-        (update-in [:user :eaten] (fnil inc 0))
-        (add-score 10))      
+        (update-in [:user :eaten] (fnil inc 0)) ; could remove user-eaten by checking board state for no pills/biscuits.
+        (add-score points))      
       state)))
 
-(defn set-pill-eaten [{user :user map :map :as state}]
-  (let [{pos :position dir :direction} user
-        {board :board} map
-        next-whole (next-pos pos dir)
-        block-pos (block map next-whole)]
-    (if (= block-pos const/PILL)      
-      (-> state 
-        (assoc-in [:map :board] (set-block next-whole board const/EMPTY))
-        (update-in [:user :eaten] (fnil inc 0))
-        (add-score 50))      
-      state)))
+(defn set-biscuit-eaten [state] 
+  (set-eaten state const/BISCUIT 10))
+
+(defn set-pill-eaten [state] 
+  (set-eaten state const/PILL 50))
 
 (defn nearest-10 [n]
   (* 10 (Math/round (/ n 10))))
