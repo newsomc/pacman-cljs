@@ -30,9 +30,6 @@
   (if (= key :ctx) (swap! state/game-state update-in [:ctx] conj value)
       (swap! state/game-state assoc-in [key] value)))
 
-(defn get-tick []
-  (:tick @state/game-state))
-
 (defn point-to-coord [x]
   (Math/round (/ x 10)))
 
