@@ -21,7 +21,7 @@
 (defn make-ghost [color] 
   {:get-tick 0, 
    :eatable nil, 
-   :color nil, 
+   :color color, 
    :eaten nil, 
    :specs color, 
    :position nil, 
@@ -50,6 +50,7 @@
           :width nil
           :pill-size 0 
           :block-size nil
+
           :board const/game-map}
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
@@ -65,8 +66,11 @@
    :stored nil
    :n-score 0})
 
+(defn get-tick []
+  (:tick game-state))
+
 ;; =============================================================================
-;; Draw Functions
+;; Draw game board 
 
 (defn draw-dialog [{map :map dialog :dialog :as state}]
   (if dialog
@@ -122,6 +126,20 @@
     
     (.fillText ctx (str "Score: " (:score user)) 30 text-base)
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
+    state))
+
+(declare draw-wall draw-block is-floor-space? move-pacman)
+
+(defn draw-map [{map :map :as state}]
+  (set! (. ctx  -fillStyle) "#000")
+  (let [width  (:width map)
+        height (:height map)
+        size   (:block-size map)]
+    (.fillRect ctx 0 0 (* width size) (* height size))
+    (draw-wall map)
+    (doseq [i (range height)] 
+      (doseq [j (range width)]
+        (draw-block state i j size)))
     state))
 
 ;; =============================================================================
@@ -184,21 +202,79 @@
         (.fill)))
     state))
 
-(declare draw-wall draw-block is-floor-space? move-pacman)
+;; =============================================================================
+;; Draw Ghosts
 
-(defn draw-map [{map :map :as state}]
-  (set! (. ctx  -fillStyle) "#000")
-  (let [width  (:width map)
-        height (:height map)
-        size   (:block-size map)]
-    (.fillRect ctx 0 0 (* width size) (* height size))
-    (draw-wall map)
-    (doseq [i (range height)] 
-      (doseq [j (range width)]
-        (draw-block state i j size)))
+(declare seconds-ago get-color)
+;; comment
+(defn draw-ghost [ghost {map :map user :user :as state}]
+  (let [ position (:position ghost)
+         bs (:block-size map)
+         ;eatable (:eatable ghost)
+         top (* (/ (:y position) 10) bs)
+         left (* (/ (:x position) 10) bs)
+         base (- (+ top bs) 3)
+         tl (+ left bs)
+         inc (/ bs 10)
+         high (if (> (mod (:tick state) 10) 5) 3 -3)
+         low (if (> (mod (:tick state) 10) 5) -3 3)
+         direction (or (:direction ghost) :up)
+         f (/ bs 12)
+         offset {:right [f 0] :left [(- f) 0] :up [0 (- f)] :down [0 f]}]
+
+    (set! (. ctx -fillStyle) (:color ghost))
+
+    ;; Body
+    (doto ctx
+      (.beginPath)
+      (.moveTo left base)
+      (.quadraticCurveTo left top (+ left (/ bs 2)) top)
+      (.quadraticCurveTo (+ left bs) top (+ left bs) base)
+      ;(.quadraticCurveTo (- tl (* inc 1)) (+ base high) (- (* inc 2) tl) base)
+      ;(.quadraticCurveTo (- tl (* inc 3)) (+ base low)  (- (* inc 4) tl) base)
+      ;(.quadraticCurveTo (- tl (* inc 5)) (+ base high) (- (* inc 6) tl) base)
+      ;(.quadraticCurveTo (- tl (* inc 7)) (+ base low)  (- (* inc 8) tl) base)
+      ;(.quadraticCurveTo (- tl (* inc 9)) (+ base low)  (- (* inc 8) tl) base)
+      (.closePath)
+      (.fill)
+      (.beginPath))
+
+    (set! (. ctx -fillStyle) "#FFF")
+
+   ;; Whites of eyes
+    (doto ctx
+      (.arc (+ left 6) (+ top 6) (/ bs 6) 0 300 false)
+      (.arc (- (+ left bs) 6) (+ top 6) (/ bs 6) 0 300 false)
+      (.closePath)
+      (.fill))
+
+    ;; Pupils
+    (.beginPath ctx)
+    (set! (. ctx -fillStyle) "#000")
+    (doto ctx
+      (.arc (+ left 6 (nth (direction offset) 0)) 
+            (+ left 6 (nth (direction offset) 1)) 
+            (/ bs 15) 
+            0 
+            300 false)
+
+      (.arc (+ (- (+ left bs) 6) (nth (direction offset) 0)) 
+            (+ top 6 (nth (direction offset) 1)) 
+            (/ bs 15) 
+            0 
+            300 false)
+
+      (.closePath)
+      (.fill)))
+  state)
+
+(defn draw-ghosts [{ghosts :ghosts :as state}] 
+  (letfn [(dg [g] (draw-ghost g state))]
+    (dorun 
+      (map dg ghosts))
     state))
 
-(declare set-biscuit-eaten set-pill-eaten set-next-level)
+(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -209,10 +285,12 @@
     (if (= :playing (:phase state))
       (-> new-state
         (move-pacman)
+        (move-ghosts reset-ghost)        
         (set-biscuit-eaten)
         (set-pill-eaten)
         (redraw-block)
         (draw-pacman)
+        (draw-ghosts)
         (set-next-level))
       state)))
 
@@ -504,6 +582,95 @@
       (merge user (refresh-user-data state)))))
 
 ;; ============================================================================================
+;; Ghosts
+
+;; Rules
+;; =========
+(defn is-vulnerable? [ghost]
+  (nil? (:eatable ghost)))
+
+(defn is-hidden? [ghost]
+  (and (nil? (:eatable ghost)) (:eaten ghost)))
+
+(defn is-dangerous? [ghost]
+  (nil? (:eaten ghost)))
+
+;; Movement
+;; =========
+
+(defn ghost-add-bounded 
+  "Collision detection."
+  [point speed]
+  (let [rem (mod point 10)
+        result (+ rem speed)]
+    (cond (and (not= rem 0 )(> result 10)) (+ point (- 10 rem))
+          (and (> rem 0) (< result 0)) (- point rem))
+    :else (+ point speed)))
+
+(defn ghost-get-new-coord [ghost dir {x :x y :y :as pos}]
+  (let [speed (if (is-vulnerable? ghost) 
+                (if (is-hidden? ghost) 4 2))
+        x-speed (or 
+                  (and (= dir :left) (- speed))
+                  (and (= dir :right) speed) 
+                  0)
+         y-speed (or 
+                  (and (= dir :down) speed)
+                  (and (= dir :up) (- speed)) 
+                  0)]
+    {:x (ghost-add-bounded x x-speed) 
+     :y (ghost-add-bounded y y-speed)}))
+
+;; Most certainly broken.
+(defn get-random-direction []
+  (rand-nth [:up :down :left :right]))
+
+(defn opposite-direction [ghost]
+  (condp = (:direction ghost)
+    :left :right
+    :right :left
+    :up :down
+    :up))
+
+(defn seconds-ago [tick]
+  (/ (- get-tick tick) const/FPS))
+
+(defn ghost-eatable-color [ghost]
+  (if (> (seconds-ago (:eatable ghost)) 5)
+    (if (> (mod get-tick 20) 10) "#FFFFFF" "#0000BB")
+    "#0000BB"))
+
+(defn get-color [ghost]
+  (cond 
+    (:eatable ghost) (ghost-eatable-color ghost)
+    (:eaten ghost) "#222"
+    :else (:color ghost)))
+
+;; BAD.
+(defn pane [pos dir]
+  (cond 
+   (and (= (:y pos) 100) (>= (:x pos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
+   (and (= (:y pos) 100) (<= (:x pos) -10) (= dir (:left const/game-const))) {:y 100 :x 190}))
+ 
+;; =====================================================
+;; Ghost states
+
+(defn reset-ghost [ghost] 
+  {:eaten nil, 
+   :eatable nil, 
+   :position {:x 90, :y 100}
+   :direction (get-random-direction)})
+
+(defn make-ghost-eatable [ghost]
+  {:direction (opposite-direction ghost)
+   :eatable true})
+
+(defn move-ghosts [state fn-to-merge]
+  (update-in state [:ghosts]
+    (fn [ghosts]
+      (map #(merge % (fn-to-merge ghosts)) (:ghosts state)))))
+
+;; ============================================================================================
 ;; Game Phases
 
 (defn start-game [state]
@@ -566,6 +733,7 @@
   (-> game-state
     (assoc :dialog "Press N to start a new game")
     (assoc-in [:user :position] {:x 90 :y 120})
+    (move-ghosts reset-ghost)
     (assoc-in [:map :width] 19)
     (assoc-in [:map :height] 22)
     (assoc-in [:map :block-size] 18)))
