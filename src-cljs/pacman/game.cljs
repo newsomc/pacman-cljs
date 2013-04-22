@@ -26,6 +26,7 @@
    :specs color, 
    :position nil, 
    :due nil, 
+   :speed 2,
    :map nil, 
    :npos nil,
    :old-pos nil,
@@ -230,11 +231,11 @@
       (.moveTo left base)
       (.quadraticCurveTo left top (+ left (/ bs 2)) top)
       (.quadraticCurveTo (+ left bs) top (+ left bs) base)
-      ;(.quadraticCurveTo (- tl (* inc 1)) (+ base high) (- (* inc 2) tl) base)
-      ;(.quadraticCurveTo (- tl (* inc 3)) (+ base low)  (- (* inc 4) tl) base)
-      ;(.quadraticCurveTo (- tl (* inc 5)) (+ base high) (- (* inc 6) tl) base)
-      ;(.quadraticCurveTo (- tl (* inc 7)) (+ base low)  (- (* inc 8) tl) base)
-      ;(.quadraticCurveTo (- tl (* inc 9)) (+ base low)  (- (* inc 8) tl) base)
+      ;;(.quadraticCurveTo (- tl (* inc 1)) (+ base high) (- (* inc 2) tl) base)
+      ;;(.quadraticCurveTo (- tl (* inc 3)) (+ base low)  (- (* inc 4) tl) base)
+      ;;(.quadraticCurveTo (- tl (* inc 5)) (+ base high) (- (* inc 6) tl) base)
+      ;;(.quadraticCurveTo (- tl (* inc 7)) (+ base low)  (- (* inc 8) tl) base)
+      ;;(.quadraticCurveTo (- tl (* inc 9)) (+ base low)  (- (* inc 8) tl) base)
       (.closePath)
       (.fill)
       (.beginPath))
@@ -274,7 +275,7 @@
       (map dg ghosts))
     state))
 
-(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost)
+(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -284,8 +285,8 @@
                     (draw-dialog))]
     (if (= :playing (:phase state))
       (-> new-state
-        (move-pacman)
-        (move-ghosts reset-ghost)        
+        (move-pacman)     
+        (move-ghosts)
         (set-biscuit-eaten)
         (set-pill-eaten)
         (redraw-block)
@@ -530,6 +531,7 @@
       (update-in [:level] inc)
       (assoc-in [:map :board] const/game-map)
       (assoc-in [:user :position] {:x 90 :y 120})
+      (update-ghosts reset-ghost)
       (assoc :phase :countdown))
     state))
 
@@ -565,7 +567,7 @@
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
 
-(defn refresh-user-data [{user :user map :map :as state}] 
+(defn old-refresh-user-data [{user :user map :map :as state}] 
   (let [{dir :direction pos :position 
          due :due speed :speed} user
          ndir (get-new-direction map due dir pos)
@@ -576,16 +578,51 @@
         :direction ndir}
       {})))
 
-(defn move-pacman [state]
+(defn refresh-data [entity map phase dir-func]
+  (let [{dir :direction pos :position 
+         due :due speed :speed } entity
+         ndir (dir-func map due dir pos)
+         npos (get-new-pos dir (normalize-position dir pos) speed)]
+    (if (= phase :playing)
+      { :position  npos
+        :old-pos   pos
+        :direction ndir}
+      {})))
+
+
+(defn refresh-user-data [{map :map user :user phase :phase}]
+  (refresh-data user map phase get-new-direction))
+
+(declare get-random-direction)
+(defn refresh-ghost-data [ghost {map :map phase :phase}]
+  (refresh-data ghost map phase get-random-direction))
+
+(defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
     (fn [user]
       (merge user (refresh-user-data state)))))
 
+
+(defn move-ghosts [{ghosts :ghosts :as state}]
+  ;(helper/console-log (map (fn [g] (:direction g)) ghosts))
+  (letfn [(gd [g] (merge g (refresh-ghost-data g state)))]
+    (update-in state [:ghosts] (fn [ghosts] (map gd ghosts)))))
+
+
+(defn update-ghosts [state merge-fn]
+  (update-in state [:ghosts]
+    (fn [ghosts]
+      (map #(merge % (merge-fn ghosts)) (:ghosts state)))))
+
+
+
+
 ;; ============================================================================================
 ;; Ghosts
 
-;; Rules
 ;; =========
+;; Rules
+
 (defn is-vulnerable? [ghost]
   (nil? (:eatable ghost)))
 
@@ -595,8 +632,8 @@
 (defn is-dangerous? [ghost]
   (nil? (:eaten ghost)))
 
-;; Movement
 ;; =========
+;; Movement
 
 (defn ghost-add-bounded 
   "Collision detection."
@@ -658,19 +695,21 @@
 (defn reset-ghost [ghost] 
   {:eaten nil, 
    :eatable nil, 
-   :position {:x 90, :y 100}
+   ;:position {:x 90, :y 100}
+   :position {:x 90, :y 80}
    :direction (get-random-direction)})
+
+(defn ghost-random-move [{dir :direction pos :position speed :speed}]
+  { :direction (get-random-direction) 
+    :position  (get-new-pos dir (normalize-position dir pos) speed)})
 
 (defn make-ghost-eatable [ghost]
   {:direction (opposite-direction ghost)
    :eatable true})
 
-(defn move-ghosts [state fn-to-merge]
-  (update-in state [:ghosts]
-    (fn [ghosts]
-      (map #(merge % (fn-to-merge ghosts)) (:ghosts state)))))
 
-;; ============================================================================================
+
+;; =======================================================
 ;; Game Phases
 
 (defn start-game [state]
@@ -709,7 +748,7 @@
   (-> state
     (assoc :timer-start (:tick state))))
 
-;; ============================================================================================
+;; =========================================================
 ;; Main Game Loop
 
 (defn driver  [state]
@@ -733,7 +772,7 @@
   (-> game-state
     (assoc :dialog "Press N to start a new game")
     (assoc-in [:user :position] {:x 90 :y 120})
-    (move-ghosts reset-ghost)
+    (update-ghosts reset-ghost)
     (assoc-in [:map :width] 19)
     (assoc-in [:map :height] 22)
     (assoc-in [:map :block-size] 18)))
