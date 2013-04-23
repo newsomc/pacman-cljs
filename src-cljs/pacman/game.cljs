@@ -105,6 +105,7 @@
     (set! (. ctx -fillStyle) "#000000")
     (.fillRect ctx 0 top-left (* map-width block-size) 30)
     (set! (. ctx -fillStyle) "#FFFF00")
+    (helper/console-log (:lives user))
     (doseq [i (range (:lives user))]
       (set! (. ctx -fillStyle) "#FFFF00")
       (doto ctx
@@ -727,39 +728,14 @@
   (-> state
     (assoc :phase :playing)))
 
-;; (defn game-dying2 [state]
-;;   (let [tick (:tick state)
-;;         t (- tick (:timer-start state))
-;;          pred (> t (/ const/FPS 3))     
-;;          ]
-;;     (if pred
-;;         (lose-life state)
-;;         (-> state
-;;           (redraw-block)
-;;           (draw-dead (/ tick (* const/FPS 2))))))
-
-
 (def ticks-remaining (atom 0))
 
 (defn pacman-dying [state]
     (-> state
       (assoc-in [:user :position] {:x 90 :y 120})
-      (update-in state [:user :lives] dec)
+      (update-in [:user :lives] dec) ;;doesn't work.
       (update-ghosts reset-ghost)
-      (assoc :phase :playing))  
-)
-
-(defn set-next-level [{level :level map :map :as state}]
-  (if (board-empty? (:board map))
-    (-> state
-      (update-in [:level] inc)
-      (assoc-in [:map :board] const/game-map)
-      (assoc-in [:user :position] {:x 90 :y 120})
-      (update-ghosts reset-ghost)
-      (assoc :phase :countdown))
-    state))
-
-
+      (assoc :phase :playing)))
 
 (defn advanced-dying [state]
   (if (zero? @ticks-remaining)
