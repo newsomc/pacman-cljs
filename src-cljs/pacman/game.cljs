@@ -277,7 +277,7 @@
       (map dg ghosts))
     state))
 
-(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
+(declare set-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -290,8 +290,7 @@
         (move-pacman)     
         (move-ghosts)
         (check-collided)
-        (set-biscuit-eaten)
-        (set-pill-eaten)
+        (set-eaten)
         (redraw-block)
         (draw-pacman)
         (draw-ghosts)
@@ -365,7 +364,10 @@
   (let [upos (:position user)
         c #(collided? upos  (:position %))]
     (if (some #{true} (map c ghosts))
-      (assoc state :phase :dying)
+      (if ghosts-are-eatable
+        state
+        (assoc state :phase :dying))
+      
       state)))
 
 (defn is-on-same-plane? [dir]
@@ -554,23 +556,24 @@
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
 
-(defn set-eaten [{user :user map :map :as state} type points]
+(declare make-ghost-eatable)
+(defn set-eaten-helper [state coord board points]
+      (-> state 
+        (assoc-in [:map :board] (set-block coord board const/EMPTY))
+        (update-in [:user :eaten] (fnil inc 0)) 
+        (add-score points)))
+
+(defn set-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
         {board :board} map
         coord (point-to-coord pos)
         block-pos (block map coord)]
-    (if (= block-pos type)      
-      (-> state 
-        (assoc-in [:map :board] (set-block coord board const/EMPTY))
-        (update-in [:user :eaten] (fnil inc 0)) 
-        (add-score points))      
+    (condp = block-pos
+      const/BISCUIT (set-eaten-helper state coord board 10) 
+      const/PILL (-> state 
+                   (set-eaten-helper coord board 50) 
+                   (update-ghosts make-ghost-eatable)) 
       state)))
-
-(defn set-biscuit-eaten [state] 
-  (set-eaten state const/BISCUIT 10))
-
-(defn set-pill-eaten [state] 
-  (set-eaten state const/PILL 50))
 
 (defn nearest-10 [n]
   (* 10 (Math/round (/ n 10))))
@@ -713,8 +716,10 @@
    :position  (get-new-pos dir (normalize-position dir pos) speed)})
 
 (defn make-ghost-eatable [ghost]
-  {:direction (opposite-direction ghost)
-   :eatable true})
+  {
+   :eatable true
+   :color "#cccccc"
+})
 
 ;; =======================================================
 ;; Game Phases
