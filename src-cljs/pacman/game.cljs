@@ -184,6 +184,7 @@
     state))
 
 (defn draw-dead [{map :map :as state} amount]
+  (helper/console-log "hi")
   (let [size (:block-size map)
         half (/ size 2)
         position (:position (:user state))]
@@ -346,7 +347,7 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
-(defn lose-life [state])
+(defn lose-life [state] state)
 
 (declare is-vulnerable? is-dangerous? is-hidden? point-to-coord)
 
@@ -361,14 +362,10 @@
 
 (defn check-collided [{user :user ghosts :ghosts :as state}]
   (let [upos (:position user)
-         rfunc (fn [acc g] (or acc (collided? upos (:position g))))
-         collision (reduce rfunc ghosts )]
-    (if collision 
+        c #(collided? upos  (:position %))]
+    (if (some #{true} (map c ghosts))
       (assoc state :phase :dying)
-      state
-      )
-    )
-  )
+      state)))
 
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
@@ -729,12 +726,21 @@
   (-> state
     (assoc :phase :playing)))
 
-(defn game-dying [state]
-  (if (> (- (:tick state) (:timer-start state)) (/ (const/FPS) 3))     
-    (lose-life state)
+;; (defn game-dying2 [state]
+;;   (let [tick (:tick state)
+;;         t (- tick (:timer-start state))
+;;          pred (> t (/ const/FPS 3))     
+;;          ]
+;;     (if pred
+;;         (lose-life state)
+;;         (-> state
+;;           (redraw-block)
+;;           (draw-dead (/ tick (* const/FPS 2))))))
+
+(defn pacman-dying [state]
+  (let [tick (:tick state)]
     (-> state
-      (redraw-block)
-      (draw-dead (/ (:tick state) (* const/FPS 2))))))
+      (draw-dead (/ tick (* const/FPS 2))))))
 
 (def ticks-remaining (atom 0))
 
@@ -772,7 +778,7 @@
         (and (= phase :waiting) (:state-changed state)) (start-game state) 
         (and (= phase :eaten-pause) 
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
-        (= phase :dying) (game-dying state)
+        (= phase :dying) (pacman-dying state)
         (= phase :countdown) (game-countdown state)
         (= phase :next-level) (start-game state) 
         :else state))))
