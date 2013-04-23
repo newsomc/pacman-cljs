@@ -419,20 +419,20 @@
 (defn map-pos [y x]
   (get (get const/game-map y) x))
 
-(defn board-pos [map y x]
+(defn board-pos [map {y :y x :x}]
   (get (get (:board map) y) x))
 
-(defn within-bounds? [map x y]
+(defn within-bounds? [map {y :y x :x}]
   (and (>= y 0) (< y (:height map)) 
        (>= x 0) (< x (:width map))))
 
-(defn is-wall-space? [map {x :x y :y}]
-  (and (within-bounds? map x y) 
-       (= const/WALL (board-pos map y x))))
+(defn is-wall-space? [map coord]
+  (and (within-bounds? map coord) 
+       (= const/WALL (board-pos map coord))))
 
-(defn is-floor-space? [map {x :x y :y}]
-  (if (within-bounds? map x y)
-    (let [piece (board-pos map y x)]
+(defn is-floor-space? [map coord]
+  (if (within-bounds? map coord)
+    (let [piece (board-pos map coord)]
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
@@ -463,7 +463,7 @@
         block-size (:block-size map)]
     (doseq [i (range height)]
       (doseq [j (range width)]
-        (if (= (board-pos map i j) const/PILL)
+        (if (= (board-pos map {:y i :x j}) const/PILL)
           (do
             (.beginPath ctx)
             (set! (. ctx -fillStyle) "#000")
@@ -496,7 +496,7 @@
     state))
 
 (defn draw-block [{map :map :as state} y x block-size] 
-  (let [layout (board-pos map y x)]
+  (let [layout (board-pos map {:y y :x x})]
     (if-not (= layout const/PILL) 
       (do   
         (.beginPath ctx)
@@ -509,8 +509,8 @@
 
 (defn block 
   "Turns x and y coordinates into tile value in the game board."
-  [map {x :x y :y}]
-  (board-pos map y x))
+  [map coord]
+  (board-pos map coord))
 
 (defn add-score [{user :user map :map :as state} points]
   (let [score (:score user)
@@ -529,6 +529,15 @@
     :up    {:x x :y (- y speed)}
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
+
+(defn get-neighbors [map {x :x y :y}]
+  (letfn [(legal? [coord] (within-bounds? map coord))
+           (l? [coord] true)]
+  (filter legal? [{:x (+ 1 x) :y y} {:x (- x 1) :y y} {:x x :y (+ 1 y)} {:x x :y (- y 1)}])))
+
+(defn get-accessible-neighbors [map coord]
+  (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
+    (filter path? (get-neighbors map coord))))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
