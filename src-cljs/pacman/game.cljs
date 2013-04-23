@@ -105,7 +105,6 @@
     (set! (. ctx -fillStyle) "#000000")
     (.fillRect ctx 0 top-left (* map-width block-size) 30)
     (set! (. ctx -fillStyle) "#FFFF00")
-    (helper/console-log (:lives user))
     (doseq [i (range (:lives user))]
       (set! (. ctx -fillStyle) "#FFFF00")
       (doto ctx
@@ -720,6 +719,14 @@
 ;; =======================================================
 ;; Game Phases
 
+(defn game-over [state]
+  (-> state 
+    (assoc :dialog "Press N to start a new game")
+    (assoc :phase :waiting)
+    (assoc-in [:user :lives] 3)
+    (assoc-in [:user :score] 0)
+    (assoc-in [:map :board] const/game-map)))
+
 (defn start-game [state]
   (-> state
     (assoc :state-changed false)))
@@ -788,6 +795,7 @@
         (and (= phase :waiting) (:state-changed state)) (start-game state) 
         (and (= phase :eaten-pause) 
           (> (- (:tick state) (:timer-start state)) (* const/FPS 2))) (game-playing state)
+        (and (= phase :dying) (= 1 (:lives (:user state)))) (game-over state) 
         (= phase :dying) (pacman-dying state)
         (= phase :countdown) (game-countdown state)
         (= phase :next-level) (start-game state) 
