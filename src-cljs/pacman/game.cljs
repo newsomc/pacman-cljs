@@ -589,11 +589,11 @@
         :direction ndir}
       {})))
 
-
 (defn refresh-user-data [{map :map user :user phase :phase}]
   (refresh-data user map phase get-new-direction))
 
 (declare get-random-direction)
+
 (defn refresh-ghost-data [ghost {map :map phase :phase}]
   (refresh-data ghost map phase get-random-direction))
 
@@ -602,20 +602,14 @@
     (fn [user]
       (merge user (refresh-user-data state)))))
 
-
 (defn move-ghosts [{ghosts :ghosts :as state}]
-  ;(helper/console-log (map (fn [g] (:direction g)) ghosts))
   (letfn [(gd [g] (merge g (refresh-ghost-data g state)))]
     (update-in state [:ghosts] (fn [ghosts] (map gd ghosts)))))
-
 
 (defn update-ghosts [state merge-fn]
   (update-in state [:ghosts]
     (fn [ghosts]
       (map #(merge % (merge-fn ghosts)) (:ghosts state)))))
-
-
-
 
 ;; ============================================================================================
 ;; Ghosts
@@ -706,8 +700,6 @@
 (defn make-ghost-eatable [ghost]
   {:direction (opposite-direction ghost)
    :eatable true})
-
-
 
 ;; =======================================================
 ;; Game Phases
