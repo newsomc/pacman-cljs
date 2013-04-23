@@ -567,16 +567,16 @@
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
 
-(defn old-refresh-user-data [{user :user map :map :as state}] 
-  (let [{dir :direction pos :position 
-         due :due speed :speed} user
-         ndir (get-new-direction map due dir pos)
-         npos (get-new-pos dir (normalize-position dir pos) speed)]    
-    (if (= (:phase state) :playing)
-      { :position  npos
-        :old-pos   pos
-        :direction ndir}
-      {})))
+;; (defn old-refresh-user-data [{user :user map :map :as state}] 
+;;   (let [{dir :direction pos :position 
+;;          due :due speed :speed} user
+;;          ndir (get-new-direction map due dir pos)
+;;          npos (get-new-pos dir (normalize-position dir pos) speed)]    
+;;     (if (= (:phase state) :playing)
+;;       { :position  npos
+;;         :old-pos   pos
+;;         :direction ndir}
+;;       {})))
 
 (defn refresh-data [entity map phase dir-func]
   (let [{dir :direction pos :position 
