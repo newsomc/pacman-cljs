@@ -362,13 +362,17 @@
 
 (defn check-collided [{user :user ghosts :ghosts :as state}]
   (let [upos (:position user)
-        c #(collided? upos  (:position %))]
-    (if (some #{true} (map c ghosts))
-      (if ghosts-are-eatable
-        state
-        (assoc state :phase :dying))
-      
-      state)))
+         eat-pacman? #(and (collided? upos (:position %1)) (not (:eatable %1))) 
+         eaten-by-pacman? #(and (collided? upos (:position %1)) (:eatable %1)) 
+         set-ghost-eaten (fn [g] 
+                           (if (eaten-by-pacman? g) 
+                             (do 
+                               {:eaten true}) 
+                             {}))
+         pacman-eaten? (some #{true} (map eat-pacman? ghosts))]
+    (if pacman-eaten?
+      (assoc state :phase :dying)
+      (update-ghosts state set-ghost-eaten))))
 
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
@@ -628,7 +632,8 @@
 (defn update-ghosts [state merge-fn]
   (update-in state [:ghosts]
     (fn [ghosts]
-      (map #(merge % (merge-fn ghosts)) (:ghosts state)))))
+      ;(map #(merge % (merge-fn ghosts)) (:ghosts state))
+      (map #(merge % (merge-fn %)) ghosts))))
 
 ;; ============================================================================================
 ;; Ghosts
@@ -705,7 +710,7 @@
 ;; =====================================================
 ;; Ghost states
 
-(defn reset-ghost [ghost] 
+(defn reset-ghost [ghosts] 
   {:eaten nil, 
    :eatable nil, 
    :position {:x 90, :y 80}
