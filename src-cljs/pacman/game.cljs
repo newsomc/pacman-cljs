@@ -207,11 +207,11 @@
 ;; Draw Ghosts
 
 (declare seconds-ago get-color)
-;; comment
+
 (defn draw-ghost [ghost {map :map user :user :as state}]
   (let [ position (:position ghost)
          bs (:block-size map)
-         ;eatable (:eatable ghost)
+         eatable (:eatable ghost)
          top (* (/ (:y position) 10) bs)
          left (* (/ (:x position) 10) bs)
          base (- (+ top bs) 3)
@@ -275,7 +275,7 @@
       (map dg ghosts))
     state))
 
-(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts)
+(declare set-biscuit-eaten set-pill-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
 
 (defn main-draw [state]
   (let [new-state (-> state
@@ -287,6 +287,7 @@
       (-> new-state
         (move-pacman)     
         (move-ghosts)
+        (check-collided)
         (set-biscuit-eaten)
         (set-pill-eaten)
         (redraw-block)
@@ -347,11 +348,28 @@
 
 (defn lose-life [state])
 
-(defn collided? [user ghost]
-  (< (+ (Math/sqrt (Math/pow (- (:x ghost) (:x user)) 2) 
-                   (Math/pow (- (:y ghost) (:y user)) 2))) 10))
+(declare is-vulnerable? is-dangerous? is-hidden? point-to-coord)
 
-;; Is this still needed? - Clint
+(defn eat-ghost [state]
+  state)
+
+(defn check-danger [ghost state]
+  (helper/console-log "called..."))
+
+(defn collided? [upos gpos]
+  (= (point-to-coord upos) (point-to-coord gpos)))
+
+(defn check-collided [{user :user ghosts :ghosts :as state}]
+  (let [upos (:position user)
+         rfunc (fn [acc g] (or acc (collided? upos (:position g))))
+         collision (reduce rfunc ghosts )]
+    (if collision 
+      (assoc state :phase :dying)
+      state
+      )
+    )
+  )
+
 (defn is-on-same-plane? [dir]
   (or (and (or (= dir :left) (= dir :right)))
       (and (or (= dir :up)   (= dir :down)))))
@@ -689,13 +707,12 @@
 (defn reset-ghost [ghost] 
   {:eaten nil, 
    :eatable nil, 
-   ;:position {:x 90, :y 100}
    :position {:x 90, :y 80}
    :direction (get-random-direction)})
 
 (defn ghost-random-move [{dir :direction pos :position speed :speed}]
-  { :direction (get-random-direction) 
-    :position  (get-new-pos dir (normalize-position dir pos) speed)})
+  {:direction (get-random-direction) 
+   :position  (get-new-pos dir (normalize-position dir pos) speed)})
 
 (defn make-ghost-eatable [ghost]
   {:direction (opposite-direction ghost)
