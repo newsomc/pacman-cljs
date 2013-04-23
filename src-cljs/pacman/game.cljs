@@ -530,6 +530,9 @@
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
+;; ============================================================================================
+;; Ghost pathfinding
+
 (defn get-neighbors [map {x :x y :y}]
   (letfn [(legal? [coord] (within-bounds? map coord))
            (l? [coord] true)]
@@ -538,6 +541,15 @@
 (defn get-accessible-neighbors [map coord]
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
+
+(defn amatrix [map]
+  (let [h (:height map)
+        w (:width map)
+        pairs (mapcat (fn [x] (map #(list % x) (range w))) (range h))
+        coords (map (fn [p] {:x (first p) :y (second p)}) pairs)
+        neighbors (map #(get-accessible-neighbors map %) coords)] 
+    (zipmap coords neighbors) ;; This doesn't work right currently. 
+ ))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
