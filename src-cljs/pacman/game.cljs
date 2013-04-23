@@ -38,6 +38,7 @@
   {:phase :waiting
    :dialog nil
    :countdown 4
+   :dying-state 3
    :user {:position nil
           :old-pos nil
           :direction nil
@@ -184,7 +185,7 @@
     state))
 
 (defn draw-dead [{map :map :as state} amount]
-  (helper/console-log "hi")
+
   (let [size (:block-size map)
         half (/ size 2)
         position (:position (:user state))]
@@ -737,12 +738,45 @@
 ;;           (redraw-block)
 ;;           (draw-dead (/ tick (* const/FPS 2))))))
 
-(defn pacman-dying [state]
-  (let [tick (:tick state)]
-    (-> state
-      (draw-dead (/ tick (* const/FPS 2))))))
 
 (def ticks-remaining (atom 0))
+
+(defn pacman-dying [state]
+    (-> state
+      (assoc-in [:user :position] {:x 90 :y 120})
+      (update-in state [:user :lives] dec)
+      (update-ghosts reset-ghost)
+      (assoc :phase :playing))  
+)
+
+(defn set-next-level [{level :level map :map :as state}]
+  (if (board-empty? (:board map))
+    (-> state
+      (update-in [:level] inc)
+      (assoc-in [:map :board] const/game-map)
+      (assoc-in [:user :position] {:x 90 :y 120})
+      (update-ghosts reset-ghost)
+      (assoc :phase :countdown))
+    state))
+
+
+
+(defn advanced-dying [state]
+  (if (zero? @ticks-remaining)
+    (if (= (:dying-state state) 0)
+      (do
+        (reset! ticks-remaining 0)
+        (-> state 
+          (assoc :phase :playing)
+          (assoc :dying-state 3)))
+      (do 
+        (reset! ticks-remaining const/FPS)))
+    (do
+      (-> state 
+        (draw-dead @ticks-remaining)
+        (update-in [:dying-state] dec))
+      (swap! ticks-remaining dec)
+      state)))
 
 (defn game-countdown [state]
   (if (zero? @ticks-remaining)
