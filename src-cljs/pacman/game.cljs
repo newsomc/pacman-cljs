@@ -130,7 +130,7 @@
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
 
-(declare draw-wall draw-block is-floor-space? move-pacman)
+(declare draw-wall is-floor-space? move-pacman)
 
 (defn draw-map [{map :map :as state}]
   (set! (. ctx  -fillStyle) "#000")
@@ -141,7 +141,7 @@
     (draw-wall map)
     (doseq [i (range height)] 
       (doseq [j (range width)]
-        (draw-block state i j size)))
+        (draw-block state {:y i :x j} size)))
     state))
 
 ;; =============================================================================
@@ -162,8 +162,8 @@
         fx (Math/floor (/ (:x pos) 10))
         cy (Math/ceil (/ (:y pos) 10))
         cx (Math/ceil (/ (:x pos) 10))]
-    (draw-block state fy fx bs)
-    (draw-block state cy cx bs)
+    (draw-block state {:y fy :x fx} bs)
+    (draw-block state {:y cy :x cx} bs)
     state))
 
 (defn draw-pacman [{map :map user :user :as state}]
@@ -477,7 +477,7 @@
             (.closePath ctx)))))
     state))
 
-(defn draw-biscuit [y x layout {map :map :as state}]
+(defn draw-biscuit [{y :y x :x} layout {map :map :as state}]
   (let [block-size (:block-size map)]
     (set! (. ctx -fillStyle) "#000")
     (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
@@ -490,15 +490,15 @@
           (/ block-size 6))))
     state))
 
-(defn draw-block [{map :map :as state} y x block-size] 
-  (let [layout (board-pos map {:y y :x x})]
+(defn draw-block [{map :map :as state} coord block-size] 
+  (let [layout (board-pos map coord)]
     (if-not (= layout const/PILL) 
       (do   
         (.beginPath ctx)
         (if (or (= layout const/EMPTY)
                 (= layout const/BLOCK)
                 (= layout const/BISCUIT)) 
-          (draw-biscuit y x layout state))
+          (draw-biscuit coord layout state))
         (.closePath ctx)))
     state))
 
