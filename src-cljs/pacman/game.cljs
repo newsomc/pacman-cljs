@@ -26,7 +26,7 @@
    :specs color, 
    :position nil, 
    :due nil, 
-   :speed 2,
+   :speed 1.3,
    :npos nil,
    :old-pos nil,
    :direction nil})
@@ -382,15 +382,19 @@
     :down { :x x :y (+ y 1) }
     {:x x :y y})) 
 
-(defn next-direction [{ax :x ay :y} {bx :x by :y}]
+(defn next-directions [{ax :x ay :y} {bx :x by :y}]
   (let [dx (- bx ax)
         dy (- by ay)]
-    (cond 
-      (< dy 0) :up
-      (> dy 0) :down
-      (< dx 0) :left
-      (> dx 0) :right
-      :else nil)))
+    (case [(compare dx 0) (compare dy 0)] 
+      [1 1] [:right :down]
+      [1 -1] [:right :up]
+      [-1 1] [:left :down]
+      [-1 -1] [:left :up]
+      [1 0] [:right]
+      [-1 0] [:left]
+      [0 1] [:down]
+      [0 -1] [:up]
+      [0 0] [] )))
 
 (defn next-square [n dir]
   (let [rem (mod n 10)]
@@ -550,10 +554,29 @@
                      a b))]
     (reduce reducer neighbors)))
 
-(defn shortest-direction [start end adjacency-matrix]
-  (next-direction start 
-    (shortest-distance start end adjacency-matrix)))
+(defn --shortest-path [end adjacency-matrix visited queue]
+  (let [[path node] (peek queue)
+         neighbors (remove visited (get adjacency-matrix node)) 
+         make-pair (fn [child] [(conj path node) child])
+         ]
+    (cond
+      (= node end)  (conj path end) 
+      (some #{node} visited) (recur end adjacency-matrix visited (pop queue))
+      :else (recur end adjacency-matrix 
+              (conj visited node) 
+              (apply conj (pop queue) (map make-pair neighbors))))))
 
+(def -shortest-path (memoize --shortest-path))
+
+(defn shortest-path [start end adjacency-matrix]
+  (let [q cljs.core.PersistentQueue/EMPTY]
+    (-shortest-path end adjacency-matrix #{} (conj q [[] start]))
+    ))
+
+
+(defn shortest-direction [start end adjacency-matrix]
+  (first 
+    (next-directions start (second (shortest-path start end adjacency-matrix)))))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
@@ -634,7 +657,7 @@
 (defn refresh-ghost-data [ghost {{pos :position} :user map :map phase :phase}]
   (refresh-data ghost map phase (partial hunt-pacman pos (:adjacency-matrix map))))
 
-(defn hunt-pacman [upos adjacency-matrix _ _ _ gpos]
+(defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
   (let [
          ucoord (point-to-coord upos)
          gcoord (point-to-coord gpos)]
