@@ -544,15 +544,16 @@
          yd (Math/pow (- ya yb) 2)] 
     (Math/sqrt (+ xd yd))))
 
-
-
 (defn shortest-distance [start end adjacency-matrix]
   (let [neighbors (get adjacency-matrix start)
          reducer (fn [a b] 
                    (if (< (distance a end) (distance b end))
                      a b))]
-    (reduce reducer neighbors)
-))
+    (reduce reducer neighbors)))
+
+(defn shortest-direction [start end map]
+  (next-direction start 
+    (shortest-distance start end (adjacency-matrix map))))
 
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
@@ -626,14 +627,19 @@
         :direction ndir}
       {})))
 
-(declare get-random-direction)
+(declare get-random-direction hunt-pacman)
 
 (defn refresh-user-data [{map :map user :user phase :phase}]
   (refresh-data user map phase get-new-direction))
 
-(defn refresh-ghost-data [ghost {map :map phase :phase}]
-  (refresh-data ghost map phase get-random-direction))
+(defn refresh-ghost-data [ghost {{pos :position} :user map :map phase :phase}]
+  (refresh-data ghost map phase (partial hunt-pacman pos)))
 
+(defn hunt-pacman [upos map _ _ gpos]
+  (let [
+         ucoord (point-to-coord upos)
+         gcoord (point-to-coord gpos)]
+    (shortest-direction gcoord ucoord map)))
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
@@ -691,7 +697,6 @@
     {:x (ghost-add-bounded x x-speed) 
      :y (ghost-add-bounded y y-speed)}))
 
-;; Most certainly broken.
 (defn get-random-direction []
   (rand-nth [:up :down :left :right]))
 
