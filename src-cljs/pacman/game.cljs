@@ -274,21 +274,17 @@
 
 
 (defn draw-ghosts [{ghosts :ghosts :as state}] 
-  (letfn [(dg [g] (draw-ghost g state))]
-    (dorun 
-      (map dg ghosts))
-    state))
+  (doseq [ghost ghosts] (draw-ghost ghost state))
+  state)
 
 (defn draw-board [state]
   (-> state draw-map draw-footer draw-pills draw-dialog))
 
 (defn move [state]
-  (-> state move-pacman move-ghosts)
-  )
+  (-> state move-pacman move-ghosts))
 
 (defn set-attrs [state]
   (-> state check-collided set-eaten set-next-level))
-
 
 (defn draw-agents [state]
   (-> state redraw-block draw-pacman draw-ghosts)
@@ -296,7 +292,7 @@
 
 (defn main-draw [state]
   (if (= :playing (:phase state))
-    (-> state draw-board move set-attrs draw-agents)
+    (-> state set-attrs move draw-board draw-agents)
     (draw-board state)))
 
 ;; =============================================================================
@@ -318,19 +314,13 @@
     (assoc :phase :countdown)))
 
 (defn start-new-game [state]
-  (-> state
-    (assoc :level 1)
-    (start-level)))
+  (-> state (assoc :level 1) start-level))
 
 (defn resume-game [state]
-  (-> state 
-    (assoc :dialog nil)
-    (assoc :phase :playing)))
+  (merge state {:dialog nil :phase :playing}))
 
 (defn pause-game [state]
-  (-> state
-    (assoc :dialog "Paused")
-    (assoc :phase :pause)))
+  (merge state {:dialog "Paused" :phase :pause}))
 
 (defn toggle-pause [state]
   (if (= (:phase state) :pause)
@@ -349,9 +339,7 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
-
 (declare is-vulnerable? is-dangerous? is-hidden? point-to-coord is-floor-space? )
-
 
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
@@ -411,7 +399,6 @@
   (and (or (is-on-same-plane? dir) 
            (on-grid-square? pos)) 
     (is-floor-space? map (next-coord (point-to-coord pos) dir))))
-
 
 (defn board-pos [map {y :y x :x}]
   (get (get (:board map) y) x))
@@ -532,13 +519,16 @@
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
-(defn amatrix [map]
+(defn adjacency-matrix [map]
   (let [h (:height map)
         w (:width map)
-        pairs (mapcat (fn [x] (map #(list % x) (range w))) (range h))
-        coords (map (fn [p] {:x (first p) :y (second p)}) pairs)
-        neighbors (map #(get-accessible-neighbors map %) coords)] 
-    (zipmap coords neighbors) ;; This doesn't work right currently. 
+        indexes (mapcat (fn [x] (map #(list % x) (range w))) (range h))
+        coords (map (fn [p] {:x (first p) :y (second p)}) indexes)
+        neighbors (map #(get-accessible-neighbors map %) coords)
+         ]
+    ;[(range w) (range h)]
+    indexes
+    ;(zipmap coords neighbors) ;; This doesn't work right currently. 
  ))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
