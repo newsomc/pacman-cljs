@@ -528,6 +528,22 @@
     (zipmap coords neighbors)
  ))
 
+
+(defn distance [{xa :x ya :y} {xb :x yb :y}]
+  (let [xd (Math/pow (- xa xb) 2)
+         yd (Math/pow (- ya yb) 2)] 
+    (Math/sqrt (+ xd yd))))
+
+
+(defn shortest-distance [start end adjacency-matrix]
+  (let [neighbors (get adjacency-matrix start)
+         reducer (fn [a b] 
+                   (if (< (distance a end) (distance b end))
+                     a b))]
+    (reduce reducer neighbors)
+))
+
+
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
     (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
@@ -599,13 +615,14 @@
         :direction ndir}
       {})))
 
+(declare get-random-direction)
+
 (defn refresh-user-data [{map :map user :user phase :phase}]
   (refresh-data user map phase get-new-direction))
 
-(declare get-random-direction)
-
 (defn refresh-ghost-data [ghost {map :map phase :phase}]
   (refresh-data ghost map phase get-random-direction))
+
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
@@ -667,6 +684,9 @@
 (defn get-random-direction []
   (rand-nth [:up :down :left :right]))
 
+
+
+
 (defn opposite-direction [ghost]
   (condp = (:direction ghost)
     :left :right
@@ -701,6 +721,7 @@
 (defn ghost-random-move [{dir :direction pos :position speed :speed}]
   {:direction (get-random-direction) 
    :position  (get-new-pos dir (normalize-position dir pos) speed)})
+
 
 (defn make-ghost-eatable [ghost]
   {
