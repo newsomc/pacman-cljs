@@ -519,16 +519,13 @@
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
-(defn adjacency-matrix [map]
-  (let [h (:height map)
-        w (:width map)
-        indexes (mapcat (fn [x] (map #(list % x) (range w))) (range h))
-        coords (map (fn [p] {:x (first p) :y (second p)}) indexes)
-        neighbors (map #(get-accessible-neighbors map %) coords)
+(defn adjacency-matrix [mmap]
+  (let [h (:height mmap)
+        w (:width mmap)
+        coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares.
+        neighbors (map #(get-accessible-neighbors mmap %) coords)
          ]
-    ;[(range w) (range h)]
-    indexes
-    ;(zipmap coords neighbors) ;; This doesn't work right currently. 
+    (zipmap coords neighbors)
  ))
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
