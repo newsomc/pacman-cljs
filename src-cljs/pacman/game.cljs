@@ -271,31 +271,33 @@
       (.fill)))
   state)
 
+(declare set-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
+
 (defn draw-ghosts [{ghosts :ghosts :as state}] 
   (letfn [(dg [g] (draw-ghost g state))]
     (dorun 
       (map dg ghosts))
     state))
 
-(declare set-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
+(defn draw-board [state]
+  (-> state draw-map draw-footer draw-pills draw-dialog))
+
+(defn move [state]
+  (-> state move-pacman move-ghosts)
+  )
+
+(defn set-attrs [state]
+  (-> state check-collided set-eaten set-next-level))
+
+
+(defn draw-agents [state]
+  (-> state redraw-block draw-pacman draw-ghosts)
+  )
 
 (defn main-draw [state]
-  (let [new-state (-> state
-                    (draw-map)
-                    (draw-footer)
-                    (draw-pills)
-                    (draw-dialog))]
-    (if (= :playing (:phase state))
-      (-> new-state
-        (move-pacman)     
-        (move-ghosts)
-        (check-collided)
-        (set-eaten)
-        (redraw-block)
-        (draw-pacman)
-        (draw-ghosts)
-        (set-next-level))
-      state)))
+  (if (= :playing (:phase state))
+    (-> state draw-board move set-attrs draw-agents)
+    (draw-board state)))
 
 ;; =============================================================================
 ;; Event Handlers
@@ -351,11 +353,6 @@
 
 (declare is-vulnerable? is-dangerous? is-hidden? point-to-coord)
 
-(defn eat-ghost [state]
-  state)
-
-(defn check-danger [ghost state]
-  (helper/console-log "called..."))
 
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
@@ -416,8 +413,6 @@
            (on-grid-square? pos)) 
     (is-floor-space? map (next-coord (point-to-coord pos) dir))))
 
-(defn map-pos [y x]
-  (get (get const/game-map y) x))
 
 (defn board-pos [map {y :y x :x}]
   (get (get (:board map) y) x))
