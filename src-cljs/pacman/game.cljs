@@ -382,6 +382,16 @@
     :down { :x x :y (+ y 1) }
     {:x x :y y})) 
 
+(defn next-direction [{ax :x ay :y} {bx :x by :y}]
+  (let [dx (- bx ax)
+        dy (- by ay)]
+    (cond 
+      (< dy 0) :up
+      (> dy 0) :down
+      (< dx 0) :left
+      (> dx 0) :right
+      :else nil)))
+
 (defn next-square [n dir]
   (let [rem (mod n 10)]
     (cond
@@ -533,6 +543,7 @@
   (let [xd (Math/pow (- xa xb) 2)
          yd (Math/pow (- ya yb) 2)] 
     (Math/sqrt (+ xd yd))))
+
 
 
 (defn shortest-distance [start end adjacency-matrix]
