@@ -502,10 +502,6 @@
         (.closePath ctx)))
     state))
 
-(defn block 
-  "Turns x and y coordinates into tile value in the game board."
-  [map coord]
-  (board-pos map coord))
 
 (defn add-score [{user :user map :map :as state} points]
   (let [score (:score user)
@@ -586,9 +582,8 @@
 (defn set-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
         {board :board} map
-        coord (point-to-coord pos)
-        block-pos (block map coord)]
-    (condp = block-pos
+        coord (point-to-coord pos)]
+    (condp = (board-pos map coord)
       const/BISCUIT (set-eaten-helper state coord board 10) 
       const/PILL (-> state 
                    (set-eaten-helper coord board 50) 
@@ -606,16 +601,6 @@
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
 
-;; (defn old-refresh-user-data [{user :user map :map :as state}] 
-;;   (let [{dir :direction pos :position 
-;;          due :due speed :speed} user
-;;          ndir (get-new-direction map due dir pos)
-;;          npos (get-new-pos dir (normalize-position dir pos) speed)]    
-;;     (if (= (:phase state) :playing)
-;;       { :position  npos
-;;         :old-pos   pos
-;;         :direction ndir}
-;;       {})))
 
 (defn refresh-data [entity map phase dir-func]
   (let [{dir :direction pos :position 
@@ -717,11 +702,6 @@
     (:eaten ghost) "#222"
     :else (:color ghost)))
 
-;; BAD.
-(defn pane [pos dir]
-  (cond 
-   (and (= (:y pos) 100) (>= (:x pos) 190) (= dir (:right const/game-const))) {:y 100 :x -10}
-   (and (= (:y pos) 100) (<= (:x pos) -10) (= dir (:left const/game-const))) {:y 100 :x 190}))
  
 ;; =====================================================
 ;; Ghost states
