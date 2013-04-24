@@ -27,7 +27,6 @@
    :position nil, 
    :due nil, 
    :speed 2,
-   :map nil, 
    :npos nil,
    :old-pos nil,
    :direction nil})
@@ -36,10 +35,10 @@
 
 (def game-state
   {:phase :waiting
-   :dialog nil
+   :dialog "Press N to start a new game"
    :countdown 4
    :dying-state 3
-   :user {:position nil
+   :user {:position {:x 90 :y 120}
           :old-pos nil
           :direction nil
           :due :left
@@ -48,12 +47,13 @@
           :eaten 0
           :score 0
           :block nil}
-   :map { :height nil
-          :width nil
+   :map { :height 22
+          :width 19
           :pill-size 0 
-          :block-size nil
-
-          :board const/game-map}
+          :block-size 18
+          :board const/game-map
+          :adjacency-matrix nil
+          }
    :audio []
    :ghosts (mapv make-ghost ghost-specs)
    :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
@@ -529,15 +529,14 @@
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
+
 (defn adjacency-matrix [mmap]
   (let [h (:height mmap)
         w (:width mmap)
         coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares.
         neighbors (map #(get-accessible-neighbors mmap %) coords)
          ]
-    (zipmap coords neighbors)
- ))
-
+    (zipmap coords neighbors)))
 
 (defn distance [{xa :x ya :y} {xb :x yb :y}]
   (let [xd (Math/pow (- xa xb) 2)
@@ -551,9 +550,9 @@
                      a b))]
     (reduce reducer neighbors)))
 
-(defn shortest-direction [start end map]
+(defn shortest-direction [start end adjacency-matrix]
   (next-direction start 
-    (shortest-distance start end (adjacency-matrix map))))
+    (shortest-distance start end adjacency-matrix)))
 
 
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
@@ -633,13 +632,13 @@
   (refresh-data user map phase get-new-direction))
 
 (defn refresh-ghost-data [ghost {{pos :position} :user map :map phase :phase}]
-  (refresh-data ghost map phase (partial hunt-pacman pos)))
+  (refresh-data ghost map phase (partial hunt-pacman pos (:adjacency-matrix map))))
 
-(defn hunt-pacman [upos map _ _ gpos]
+(defn hunt-pacman [upos adjacency-matrix _ _ _ gpos]
   (let [
          ucoord (point-to-coord upos)
          gcoord (point-to-coord gpos)]
-    (shortest-direction gcoord ucoord map)))
+    (shortest-direction gcoord ucoord adjacency-matrix)))
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
@@ -831,13 +830,10 @@
         :else state))))
 
 (defn make-state []
-  (-> game-state
-    (assoc :dialog "Press N to start a new game")
-    (assoc-in [:user :position] {:x 90 :y 120})
+  (-> game-state 
     (update-ghosts reset-ghost)
-    (assoc-in [:map :width] 19)
-    (assoc-in [:map :height] 22)
-    (assoc-in [:map :block-size] 18)))
+    (assoc-in [:map :adjacency-matrix] (adjacency-matrix (:map game-state)))
+    ))
 
 (defn loaded []
   (let [init-state (make-state)
