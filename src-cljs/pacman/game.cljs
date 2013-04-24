@@ -94,7 +94,7 @@
   (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
   state)
 
-(declare draw-block draw-pills)
+(declare draw-block draw-pills draw-wall)
 
 (defn draw-footer [{map :map user :user :as state}]
   (let [block-size (:block-size map)
@@ -130,7 +130,7 @@
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
 
-(declare draw-wall is-floor-space? move-pacman)
+
 
 (defn draw-map [{map :map :as state}]
   (set! (. ctx  -fillStyle) "#000")
@@ -208,8 +208,6 @@
 ;; =============================================================================
 ;; Draw Ghosts
 
-(declare seconds-ago get-color)
-
 (defn draw-ghost [ghost {map :map user :user :as state}]
   (let [ position (:position ghost)
          bs (:block-size map)
@@ -271,7 +269,9 @@
       (.fill)))
   state)
 
-(declare set-eaten set-next-level move-ghosts reset-ghost ghost-random-move update-ghosts check-collided)
+(declare set-eaten set-next-level update-ghosts check-collided reset-ghost )  
+(declare move-ghosts move-pacman)
+
 
 (defn draw-ghosts [{ghosts :ghosts :as state}] 
   (letfn [(dg [g] (draw-ghost g state))]
@@ -349,9 +349,8 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
-(defn lose-life [state] state)
 
-(declare is-vulnerable? is-dangerous? is-hidden? point-to-coord)
+(declare is-vulnerable? is-dangerous? is-hidden? point-to-coord is-floor-space? )
 
 
 (defn collided? [upos gpos]
