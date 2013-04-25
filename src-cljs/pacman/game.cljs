@@ -31,8 +31,6 @@
    :old-pos nil,
    :direction nil})
 
-(def ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"])
-
 (def game-state
   {:phase :waiting
    :dialog "Press N to start a new game"
@@ -55,8 +53,7 @@
           :adjacency-matrix nil
           }
    :audio []
-   :ghosts (mapv make-ghost ghost-specs)
-   :ghost-specs ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"]
+   :ghosts (mapv make-ghost ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"])
    :level 0
    :tick 0
    :ghost-pos []
@@ -71,8 +68,20 @@
 (defn get-tick []
   (:tick game-state))
 
+
+;; =====================================
+;; Basic board operations.
+
+(defn board-pos [map {y :y x :x}]
+  (get (get (:board map) y) x))
+
+(defn set-block [{x :x y :y} map type] 
+  (assoc-in map [y x] type))
+
+
 ;; =============================================================================
 ;; Draw game board 
+
 
 (defn draw-dialog [{map :map dialog :dialog :as state}]
   (if dialog
@@ -94,7 +103,75 @@
   (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
   state)
 
-(declare draw-block draw-pills draw-wall)
+(defn draw-wall [map]
+  (set! (. ctx -strokeStyle) "#0000FF")
+  (set! (. ctx -lineWidth) 5)
+  (set! (. ctx -lineCap) "round")
+  (letfn [(*block-size [n] (* n (:block-size map)))]
+    (doseq [line const/WALLS]
+      (.beginPath ctx)
+      (doseq [point line]
+        (cond (:move point) (let [[a b] (:move point)]
+                              (.moveTo ctx (*block-size a) (*block-size b)))
+          (:line point) (let [[a b] (:line point)] 
+                          (.lineTo ctx (*block-size a) (*block-size b)))
+          (:curve point) (let [[a b c d] (:curve point)] 
+                           (.quadraticCurveTo ctx 
+                             (*block-size a)
+                             (*block-size b)
+                             (*block-size c)
+                             (*block-size d)))))       
+      (.stroke ctx))))
+
+(defn draw-pills [{map :map :as state}]
+  (let [height     (:height map)
+        width      (:width map)
+        block-size (:block-size map)]
+    (doseq [i (range height)]
+      (doseq [j (range width)]
+        (if (= (board-pos map {:y i :x j}) const/PILL)
+          (do
+            (.beginPath ctx)
+            (set! (. ctx -fillStyle) "#000")
+            (.fillRect ctx (* j block-size) 
+                           (* i block-size)
+                           block-size 
+                           block-size)
+            (set! (. ctx -fillStyle) "#FFF")
+            (.arc ctx (+ (* j block-size) (/ block-size 2))
+                      (+ (* i block-size) (/ block-size 2))
+                     (Math/abs (- 5 (/ (:pill-size map) 3)))
+                      0
+                      (* (.-PI js/Math) 2)
+                      false)
+            (.fill ctx)
+            (.closePath ctx)))))
+    state))
+
+(defn draw-biscuit [{y :y x :x} layout {map :map :as state}]
+  (let [block-size (:block-size map)]
+    (set! (. ctx -fillStyle) "#000")
+    (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
+    (if (= layout const/BISCUIT)
+      (do
+        (set! (. ctx -fillStyle) "#FFF")
+        (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
+          (+ (* y block-size) (/ block-size 2.5))
+          (/ block-size 6)
+          (/ block-size 6))))
+    state))
+
+(defn draw-block [{map :map :as state} coord block-size] 
+  (let [layout (board-pos map coord)]
+    (if-not (= layout const/PILL) 
+      (do   
+        (.beginPath ctx)
+        (if (or (= layout const/EMPTY)
+                (= layout const/BLOCK)
+                (= layout const/BISCUIT)) 
+          (draw-biscuit coord layout state))
+        (.closePath ctx)))
+    state))
 
 (defn draw-footer [{map :map user :user :as state}]
   (let [block-size (:block-size map)
@@ -130,8 +207,6 @@
     (.fillText ctx (str "Level: " (:level state)) 260 text-base)
     state))
 
-
-
 (defn draw-map [{map :map :as state}]
   (set! (. ctx  -fillStyle) "#000")
   (let [width  (:width map)
@@ -158,16 +233,6 @@
     (and (= dir :up)    yd) {:start 1.25 :end 1.75 :direction true}     
     (and (= dir :left)  xd) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false})))
-
-; draw the two blocks pacman is occupying.
-(defn redraw-block [{map :map :as state}]
-  (let [{{{x :x y :y} :position} :user} state
-        bs (:block-size map)
-        f (fn [e] Math/floor (/ e 10))
-        c (fn [e] Math/ceil (/ e 10))]
-    (draw-block state {:y (f y) :x (f x)} bs)
-    (draw-block state {:y (c y) :x (c x)} bs)
-    state))
 
 (defn draw-pacman [{map :map user :user :as state}]
   (let [s        (:block-size map)
@@ -294,7 +359,7 @@
   (-> state check-collided set-eaten set-next-level))
 
 (defn draw-agents [state]
-  (-> state redraw-block draw-pacman draw-ghosts)
+  (-> state draw-pacman draw-ghosts)
   )
 
 (defn main-draw [state]
@@ -408,8 +473,6 @@
 (defn direction-allowable? [map dir pos]
   (is-floor-space? map (next-coord (point-to-coord pos) dir)))
 
-(defn board-pos [map {y :y x :x}]
-  (get (get (:board map) y) x))
 
 (defn within-bounds? [map {y :y x :x}]
   (and (>= y 0) (< y (:height map)) 
@@ -432,75 +495,6 @@
     (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
 
 
-(defn draw-wall [map]
-  (set! (. ctx -strokeStyle) "#0000FF")
-  (set! (. ctx -lineWidth) 5)
-  (set! (. ctx -lineCap) "round")
-  (letfn [(*block-size [n] (* n (:block-size map)))]
-    (doseq [line const/WALLS]
-      (.beginPath ctx)
-      (doseq [point line]
-        (cond (:move point) (let [[a b] (:move point)]
-                              (.moveTo ctx (*block-size a) (*block-size b)))
-          (:line point) (let [[a b] (:line point)] 
-                          (.lineTo ctx (*block-size a) (*block-size b)))
-          (:curve point) (let [[a b c d] (:curve point)] 
-                           (.quadraticCurveTo ctx 
-                             (*block-size a)
-                             (*block-size b)
-                             (*block-size c)
-                             (*block-size d)))))       
-      (.stroke ctx))))
-
-(defn draw-pills [{map :map :as state}]
-  (let [height     (:height map)
-        width      (:width map)
-        block-size (:block-size map)]
-    (doseq [i (range height)]
-      (doseq [j (range width)]
-        (if (= (board-pos map {:y i :x j}) const/PILL)
-          (do
-            (.beginPath ctx)
-            (set! (. ctx -fillStyle) "#000")
-            (.fillRect ctx (* j block-size) 
-                           (* i block-size)
-                           block-size 
-                           block-size)
-            (set! (. ctx -fillStyle) "#FFF")
-            (.arc ctx (+ (* j block-size) (/ block-size 2))
-                      (+ (* i block-size) (/ block-size 2))
-                     (Math/abs (- 5 (/ (:pill-size map) 3)))
-                      0
-                      (* (.-PI js/Math) 2)
-                      false)
-            (.fill ctx)
-            (.closePath ctx)))))
-    state))
-
-(defn draw-biscuit [{y :y x :x} layout {map :map :as state}]
-  (let [block-size (:block-size map)]
-    (set! (. ctx -fillStyle) "#000")
-    (.fillRect ctx (* x block-size) (* y block-size) block-size block-size)
-    (if (= layout const/BISCUIT)
-      (do
-        (set! (. ctx -fillStyle) "#FFF")
-        (.fillRect ctx (+ (* x block-size) (/ block-size 2.5)) 
-          (+ (* y block-size) (/ block-size 2.5))
-          (/ block-size 6)
-          (/ block-size 6))))
-    state))
-
-(defn draw-block [{map :map :as state} coord block-size] 
-  (let [layout (board-pos map coord)]
-    (if-not (= layout const/PILL) 
-      (do   
-        (.beginPath ctx)
-        (if (or (= layout const/EMPTY)
-                (= layout const/BLOCK)
-                (= layout const/BISCUIT)) 
-          (draw-biscuit coord layout state))
-        (.closePath ctx)))
-    state))
 
 
 (defn add-score [{user :user map :map :as state} points]
@@ -584,7 +578,7 @@
     (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
 
-(defn get-new-direction [map due dir pos]
+(defn get-user-direction [map due dir pos]
   (cond 
     (and dir (is-wall-space? map 
              (next-coord (point-to-coord pos) due)) 
@@ -605,10 +599,10 @@
       (assoc :phase :countdown))
     state))
 
-(defn set-block [{x :x y :y} map type] 
-  (assoc-in map [y x] type))
 
-(declare make-ghost-eatable)
+(defn make-ghost-eatable [ghost]
+  { :eatable true })
+
 
 (defn set-eaten-helper [state coord board points]
       (-> state 
@@ -651,11 +645,19 @@
         :direction ndir}
       {})))
 
-(declare flee-pacman hunt-pacman go-to-jail)
+(defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
+  (let [
+         ucoord (point-to-coord upos)
+         gcoord (point-to-coord gpos)]
+    (shortest-direction gcoord ucoord adjacency-matrix)))
 
+(def flee-pacman (comp opposite-direction hunt-pacman))
 
-(defn refresh-user-data [{map :map user :user phase :phase}]
-  (refresh-data user map phase get-new-direction))
+(defn go-to-jail [adjacency-matrix _ _ _ gpos]
+  (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-matrix))
+
+(defn refresh-pacman-data [{map :map user :user phase :phase}]
+  (refresh-data user map phase get-user-direction))
 
 (defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map phase :phase}]
   (let [strategy (cond 
@@ -665,23 +667,10 @@
                    :else (partial hunt-pacman pos (:adjacency-matrix map)))] 
     (refresh-data ghost map phase strategy)))
 
-
-(defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
-  (let [
-         ucoord (point-to-coord upos)
-         gcoord (point-to-coord gpos)]
-    (shortest-direction gcoord ucoord adjacency-matrix)))
-
-(def flee-pacman (comp opposite-direction hunt-pacman))
-
-
-(defn go-to-jail [adjacency-matrix _ _ _ gpos]
-  (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-matrix))
-
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
     (fn [user]
-      (merge user (refresh-user-data state)))))
+      (merge user (refresh-pacman-data state)))))
 
 (defn move-ghosts [{ghosts :ghosts :as state}]
   (letfn [(gd [g] (merge g (refresh-ghost-data g state)))]
@@ -726,10 +715,6 @@
    :position  (get-new-pos dir (normalize-position dir pos) speed)})
 
 
-(defn make-ghost-eatable [ghost]
-  {
-    :eatable true
-    })
 
 
 ;; =======================================================
