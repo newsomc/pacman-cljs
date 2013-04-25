@@ -26,10 +26,10 @@
    :specs color, 
    :position nil, 
    :due nil, 
-   :speed 1.3,
+   :speed 1.6,
    :npos nil,
-   :old-pos nil,
-   :direction nil})
+   :direction nil
+    })
 
 (def game-state
   {:phase :waiting
@@ -37,40 +37,45 @@
    :countdown 4
    :dying-state 3
    :user {:position {:x 90 :y 120}
-          :old-pos nil
           :direction nil
           :due :left
           :speed 2
           :lives 3
           :eaten 0
           :score 0
-          :block nil}
+           }
    :map { :height 22
           :width 19
           :pill-size 0 
           :block-size 18
           :board const/game-map
-          :adjacency-matrix nil
+          :adjacency-map nil
           }
    :audio []
    :ghosts (mapv make-ghost ["#00FFDE" "#FF0000" "#FFB8DE" "#FFB847"])
    :level 0
    :tick 0
-   :ghost-pos []
    :state-changed true
    :timer-start nil
    :last-time 0
-   :ctx nil
    :timer nil
-   :stored nil
-   :n-score 0})
+})
 
 (defn get-tick []
   (:tick game-state))
 
 
+
 ;; =====================================
 ;; Basic board operations.
+
+
+(defn point-difference [{ax :x ay :y} {bx :x by :y}]
+  {:x (- bx ax) :y (- by ay)})
+
+(defn distance [a b]
+  (let [{dx :x dy :y} (point-difference a b)]
+    (Math/sqrt (+ (Math/pow dx) (Math/pow dy)))))
 
 (defn board-pos [map {y :y x :x}]
   (get (get (:board map) y) x))
@@ -101,9 +106,8 @@
 
 
 ; Directions
-(defn next-directions [{ax :x ay :y} {bx :x by :y}]
-  (let [dx (- bx ax)
-        dy (- by ay)]
+(defn next-directions [a b]
+  (let [{dx :x dy :y} (point-difference a b)]
     (case [(compare dx 0) (compare dy 0)] 
       [1 1] [:right :down]
       [1 -1] [:right :up]
@@ -468,6 +472,7 @@
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
 
+; this is not good.
 (defn check-collided [{user :user ghosts :ghosts :as state}]
   (let [upos (:position user)
          eat-pacman? #(and (collided? upos (:position %1)) (not (:eatable %1))) 
@@ -527,54 +532,46 @@
            (l? [coord] true)]
   (filter legal? [{:x (+ 1 x) :y y} {:x (- x 1) :y y} {:x x :y (+ 1 y)} {:x x :y (- y 1)}])))
 
-(defn get-accessible-neighbors [map coord]
+(defn get-legal-neighbors [map coord]
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
-
-(defn adjacency-matrix [mmap]
+(defn adjacency-map [mmap]
   (let [h (:height mmap)
         w (:width mmap)
         coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares?
-        neighbors (map #(get-accessible-neighbors mmap %) coords)
+        neighbors (map #(get-legal-neighbors mmap %) coords)
          ]
     (zipmap coords neighbors)))
 
-(defn distance [{xa :x ya :y} {xb :x yb :y}]
-  (let [xd (Math/pow (- xa xb) 2)
-         yd (Math/pow (- ya yb) 2)] 
-    (Math/sqrt (+ xd yd))))
-
-(defn shortest-distance [start end adjacency-matrix]
-  (let [neighbors (get adjacency-matrix start)
+(defn shortest-distance [start end adjacency-map]
+  (let [neighbors (get adjacency-map start)
          reducer (fn [a b] 
                    (if (< (distance a end) (distance b end))
                      a b))]
     (reduce reducer neighbors)))
 
-(defn --shortest-path [end adjacency-matrix visited queue]
+(defn --shortest-path [end adjacency-map visited queue]
   (let [[path node] (peek queue)
-         neighbors (remove visited (get adjacency-matrix node)) 
+         neighbors (remove visited (get adjacency-map node)) 
          make-pair (fn [child] [(conj path node) child])
          ]
     (cond
       (= node end)  (conj path end) 
-      (some #{node} visited) (recur end adjacency-matrix visited (pop queue))
-      :else (recur end adjacency-matrix 
+      (some #{node} visited) (recur end adjacency-map visited (pop queue))
+      :else (recur end adjacency-map 
               (conj visited node) 
               (apply conj (pop queue) (map make-pair neighbors))))))
 
 (def -shortest-path (memoize --shortest-path))
 
-(defn shortest-path [start end adjacency-matrix]
+(defn shortest-path [start end adjacency-map]
   (let [q cljs.core.PersistentQueue/EMPTY]
-    (-shortest-path end adjacency-matrix #{} (conj q [[] start]))
-    ))
+    (-shortest-path end adjacency-map #{} (conj q [[] start]))))
 
-(defn shortest-direction [start end adjacency-matrix]
+(defn shortest-direction [start end adjacency-map]
   (first 
-    (next-directions start (second (shortest-path start end adjacency-matrix)))))
-
+    (next-directions start (second (shortest-path start end adjacency-map)))))
 
 (defn get-user-direction [map due dir pos]
   (cond 
@@ -628,30 +625,35 @@
   (let [ {dir :direction pos :position due :due speed :speed } agent
          ndir (dir-func map due dir pos)
          npos (get-new-pos dir (normalize-position dir pos) speed)]
-    { :position  npos
-      :old-pos   pos
-      :direction ndir}))
+    { :position npos :direction ndir}))
 
-(defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
+(defn hunt-pacman [upos adjacency-map _ _ dir gpos]
   (let [
          ucoord (point-to-coord upos)
          gcoord (point-to-coord gpos)]
-    (shortest-direction gcoord ucoord adjacency-matrix)))
+    (shortest-direction gcoord ucoord adjacency-map)))
+
+(defn random-legal-direction [map due dir pos]
+  
+
+)
 
 (def flee-pacman (comp opposite-direction hunt-pacman))
 
-(defn go-to-jail [adjacency-matrix _ _ _ gpos]
-  (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-matrix))
+(defn go-to-jail [adjacency-map _ _ _ gpos]
+  (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-map))
 
 (defn refresh-pacman-data [{map :map user :user}]
   (refresh-data user map get-user-direction))
 
 (defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
   (let [strategy (cond 
-                   eaten (partial go-to-jail (:adjacency-matrix map)) 
-                   ;eatable (partial flee-pacman pos (:adjacency-matrix map))
+                   eaten (partial go-to-jail (:adjacency-map map)) 
+                   ;eatable (partial flee-pacman pos (:adjacency-map map))
+                   ;eatable random-legal-direction
                    eatable get-random-direction
-                   :else (partial hunt-pacman pos (:adjacency-matrix map)))] 
+
+                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
     (refresh-data ghost map strategy)))
 
 (defn move-pacman [{user :user :as state} ]
@@ -791,7 +793,7 @@
 (defn make-state []
   (-> game-state 
     (update-ghosts reset-ghost)
-    (assoc-in [:map :adjacency-matrix] (adjacency-matrix (:map game-state)))
+    (assoc-in [:map :adjacency-map] (adjacency-map (:map game-state)))
     ))
 
 (defn loaded []
