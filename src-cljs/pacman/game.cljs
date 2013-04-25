@@ -343,7 +343,7 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
-(declare is-vulnerable? is-dangerous? is-hidden? point-to-coord is-floor-space? )
+(declare point-to-coord is-floor-space? )
 
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
@@ -712,46 +712,7 @@
 ;; ============================================================================================
 ;; Ghosts
 
-;; =========
-;; Rules
-
-(defn is-vulnerable? [ghost]
-  (nil? (:eatable ghost)))
-
-(defn is-hidden? [ghost]
-  (and (nil? (:eatable ghost)) (:eaten ghost)))
-
-(defn is-dangerous? [ghost]
-  (nil? (:eaten ghost)))
-
-;; =========
-;; Movement
-
-(defn ghost-add-bounded 
-  "Collision detection."
-  [point speed]
-  (let [rem (mod point 10)
-        result (+ rem speed)]
-    (cond (and (not= rem 0 )(> result 10)) (+ point (- 10 rem))
-          (and (> rem 0) (< result 0)) (- point rem))
-    :else (+ point speed)))
-
-(defn ghost-get-new-coord [ghost dir {x :x y :y :as pos}]
-  (let [speed (if (is-vulnerable? ghost) 
-                (if (is-hidden? ghost) 4 2))
-        x-speed (or 
-                  (and (= dir :left) (- speed))
-                  (and (= dir :right) speed) 
-                  0)
-         y-speed (or 
-                  (and (= dir :down) speed)
-                  (and (= dir :up) (- speed)) 
-                  0)]
-    {:x (ghost-add-bounded x x-speed) 
-     :y (ghost-add-bounded y y-speed)}))
-
-
-
+; these three aren't used currently...
 (defn seconds-ago [tick]
   (/ (- get-tick tick) const/FPS))
 
@@ -815,6 +776,8 @@
       (update-ghosts reset-ghost)
       (assoc :phase :playing)))
 
+; not fully functioning currently. 
+; replace pacman-dying with this.
 (defn advanced-dying [state]
   (if (zero? @ticks-remaining)
     (if (= (:dying-state state) 0)
