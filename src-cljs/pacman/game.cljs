@@ -119,6 +119,10 @@
       [0 -1] [:up]
       [0 0] [] )))
 
+(defn next-direction [a b]
+  (let [dirs (next-directions a b)]
+    (if (empty? dirs) nil (first dirs))))
+
 (defn get-random-direction []
   (rand-nth [:up :down :left :right]))
 
@@ -621,6 +625,7 @@
 
 ; Refresh data refreshes what is happening with a ghost or pacman.
 ; it takes an agent, a game map, a play phase, and 
+; dir-func should take the adjacency-map, not the game map...
 (defn refresh-data [agent map dir-func]
   (let [ {dir :direction pos :position due :due speed :speed } agent
          ndir (dir-func map due dir pos)
@@ -633,10 +638,10 @@
          gcoord (point-to-coord gpos)]
     (shortest-direction gcoord ucoord adjacency-map)))
 
-(defn random-legal-direction [map due dir pos]
-  
-
-)
+(defn random-legal-direction [adjacency-map _ _ _ pos]
+  (let [c (point-to-coord pos)
+         neighbors (get adjacency-map c)] 
+    (next-direction c (rand-nth neighbors))))
 
 (def flee-pacman (comp opposite-direction hunt-pacman))
 
@@ -650,9 +655,8 @@
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-map map)) 
                    ;eatable (partial flee-pacman pos (:adjacency-map map))
-                   ;eatable random-legal-direction
-                   eatable get-random-direction
-
+                   eatable (partial random-legal-direction (:adjacency-map map)) 
+                   ;eatable get-random-direction
                    :else (partial hunt-pacman pos (:adjacency-map map)))] 
     (refresh-data ghost map strategy)))
 
