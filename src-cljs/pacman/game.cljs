@@ -365,16 +365,6 @@
       (assoc state :phase :dying)
       (update-ghosts state set-ghost-eaten))))
 
-(defn is-on-same-plane? [dir]
-  (or (and (or (= dir :left) (= dir :right)))
-      (and (or (= dir :up)   (= dir :down)))))
-
-(defn on-whole-square? [n]
-  (= (mod n 10) 0))
-
-(defn on-grid-square? [{x :x y :y }]
-  (and (on-whole-square? y) (on-whole-square? x)))
-
 (defn point-val-to-coord [n] 
   (Math/round (/ n 10)))
 
@@ -415,23 +405,8 @@
     nil nil
     ))
 
-(defn next-square [n dir]
-  (let [rem (mod n 10)]
-    (cond
-      (= rem 0) n
-      (or (= dir :right) (= dir :down)) (+ n (- 10 rem))
-      :else (- n rem))))
-
-(defn next-pos [{x :x y :y} dir]
-  {:y (point-val-to-coord (next-square y dir))
-   :x (point-val-to-coord (next-square x dir))})
-
-;; Also used for moving Pac-Man. Helps determine if he is facing a wall.
-;; Could be doing too many things at once...
 (defn direction-allowable? [map dir pos]
-  (and (or (is-on-same-plane? dir) 
-           (on-grid-square? pos)) 
-    (is-floor-space? map (next-coord (point-to-coord pos) dir))))
+  (is-floor-space? map (next-coord (point-to-coord pos) dir)))
 
 (defn board-pos [map {y :y x :x}]
   (get (get (:board map) y) x))
@@ -450,6 +425,12 @@
       (or (= piece const/EMPTY)
           (= piece const/BISCUIT)
           (= piece const/PILL)))))
+
+(defn is-floor-space2? [map coord]
+  (and 
+    (within-bounds? map coord)
+    (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
+
 
 (defn draw-wall [map]
   (set! (. ctx -strokeStyle) "#0000FF")
