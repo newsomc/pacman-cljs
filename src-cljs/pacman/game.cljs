@@ -574,10 +574,12 @@
 
 (defn get-user-direction [map due dir pos]
   (cond 
-    (and dir (is-wall-space? map 
-             (next-coord (point-to-coord pos) due)) 
-             (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
-    (direction-allowable? map due pos) due))
+    (and 
+      dir 
+      (is-wall-space? map (next-coord (point-to-coord pos) due)) 
+      (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
+    (direction-allowable? map due pos) due
+    :else nil))
 
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
@@ -625,16 +627,16 @@
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
 
-(defn refresh-data [entity map phase dir-func]
-  (let [{dir :direction pos :position 
-         due :due speed :speed } entity
+
+; Refresh data refreshes what is happening with a ghost or pacman.
+; it takes an agent, a game map, a play phase, and 
+(defn refresh-data [agent map dir-func]
+  (let [ {dir :direction pos :position due :due speed :speed } agent
          ndir (dir-func map due dir pos)
          npos (get-new-pos dir (normalize-position dir pos) speed)]
-    (if (= phase :playing)
-      { :position  npos
-        :old-pos   pos
-        :direction ndir}
-      {})))
+    { :position  npos
+      :old-pos   pos
+      :direction ndir}))
 
 (defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
   (let [
@@ -647,16 +649,16 @@
 (defn go-to-jail [adjacency-matrix _ _ _ gpos]
   (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-matrix))
 
-(defn refresh-pacman-data [{map :map user :user phase :phase}]
-  (refresh-data user map phase get-user-direction))
+(defn refresh-pacman-data [{map :map user :user}]
+  (refresh-data user map get-user-direction))
 
-(defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map phase :phase}]
+(defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-matrix map)) 
                    ;eatable (partial flee-pacman pos (:adjacency-matrix map))
                    eatable get-random-direction
                    :else (partial hunt-pacman pos (:adjacency-matrix map)))] 
-    (refresh-data ghost map phase strategy)))
+    (refresh-data ghost map strategy)))
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
