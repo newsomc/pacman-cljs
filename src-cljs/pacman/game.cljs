@@ -223,7 +223,9 @@
          f (/ bs 12)
          offset {:right [f 0] :left [(- f) 0] :up [0 (- f)] :down [0 f]}]
 
-    (set! (. ctx -fillStyle) (:color ghost))
+    (if eatable 
+      (set! (. ctx -fillStyle) "#cccccc")
+      (set! (. ctx -fillStyle) (:color ghost)))
 
     ;; Body
     (doto ctx
@@ -253,7 +255,9 @@
     (.beginPath ctx)
     (set! (. ctx -fillStyle) "#000")
     (doto ctx
-      (.arc (+ left 6 (nth (direction offset) 0)) 
+
+      ; This pupil isn't working right.
+      #_(.arc (+ left 6 (nth (direction offset) 0)) 
             (+ left 6 (nth (direction offset) 1)) 
             (/ bs 15) 
             0 
@@ -780,10 +784,7 @@
 (defn make-ghost-eatable [ghost]
   {
     :eatable true
-    :color "#cccccc"
     })
-
-
 
 
 ;; =======================================================
