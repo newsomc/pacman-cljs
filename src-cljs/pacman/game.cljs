@@ -78,6 +78,51 @@
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
 
+(defn point-val-to-coord [n] 
+  (Math/round (/ n 10)))
+
+(defn point-to-coord [{x :x y :y }]
+  {:x (point-val-to-coord x) :y (point-val-to-coord y)})
+
+(defn within-bounds? [map {y :y x :x}]
+  (and (>= y 0) (< y (:height map)) 
+       (>= x 0) (< x (:width map))))
+
+
+; Directions
+(defn next-directions [{ax :x ay :y} {bx :x by :y}]
+  (let [dx (- bx ax)
+        dy (- by ay)]
+    (case [(compare dx 0) (compare dy 0)] 
+      [1 1] [:right :down]
+      [1 -1] [:right :up]
+      [-1 1] [:left :down]
+      [-1 -1] [:left :up]
+      [1 0] [:right]
+      [-1 0] [:left]
+      [0 1] [:down]
+      [0 -1] [:up]
+      [0 0] [] )))
+
+(defn get-random-direction []
+  (rand-nth [:up :down :left :right]))
+
+(defn opposite-direction [dir]
+  (condp = dir
+    :left :right
+    :right :left
+    :up :down
+    :down :up
+    nil nil))
+
+(defn next-coord [{x :x y :y} dir]
+  (case dir
+    :left { :x (- x 1) :y y }
+    :right { :x (+ x 1) :y y }
+    :up { :x x :y (- y 1) }
+    :down { :x x :y (+ y 1) }
+    {:x x :y y})) 
+
 
 ;; =============================================================================
 ;; Draw game board 
@@ -344,7 +389,6 @@
 (declare set-eaten set-next-level update-ghosts check-collided reset-ghost )  
 (declare move-ghosts move-pacman)
 
-
 (defn draw-ghosts [{ghosts :ghosts :as state}] 
   (doseq [ghost ghosts] (draw-ghost ghost state))
   state)
@@ -352,15 +396,14 @@
 (defn draw-board [state]
   (-> state draw-map draw-footer draw-pills draw-dialog))
 
+(defn draw-agents [state]
+  (-> state draw-pacman draw-ghosts))
+
 (defn move [state]
   (-> state move-pacman move-ghosts))
 
 (defn set-attrs [state]
   (-> state check-collided set-eaten set-next-level))
-
-(defn draw-agents [state]
-  (-> state draw-pacman draw-ghosts)
-  )
 
 (defn main-draw [state]
   (if (= :playing (:phase state))
@@ -411,8 +454,6 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
-(declare point-to-coord is-floor-space? )
-
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
 
@@ -430,58 +471,6 @@
       (assoc state :phase :dying)
       (update-ghosts state set-ghost-eaten))))
 
-(defn point-val-to-coord [n] 
-  (Math/round (/ n 10)))
-
-(defn point-to-coord [{x :x y :y }]
-  {:x (point-val-to-coord x) :y (point-val-to-coord y)})
-
-(defn next-coord [{x :x y :y} dir]
-  (case dir
-    :left { :x (- x 1) :y y }
-    :right { :x (+ x 1) :y y }
-    :up { :x x :y (- y 1) }
-    :down { :x x :y (+ y 1) }
-    {:x x :y y})) 
-
-(defn next-directions [{ax :x ay :y} {bx :x by :y}]
-  (let [dx (- bx ax)
-        dy (- by ay)]
-    (case [(compare dx 0) (compare dy 0)] 
-      [1 1] [:right :down]
-      [1 -1] [:right :up]
-      [-1 1] [:left :down]
-      [-1 -1] [:left :up]
-      [1 0] [:right]
-      [-1 0] [:left]
-      [0 1] [:down]
-      [0 -1] [:up]
-      [0 0] [] )))
-
-(defn get-random-direction []
-  (rand-nth [:up :down :left :right]))
-
-(defn opposite-direction [dir]
-  (condp = dir
-    :left :right
-    :right :left
-    :up :down
-    :down :up
-    nil nil
-    ))
-
-(defn direction-allowable? [map dir pos]
-  (is-floor-space? map (next-coord (point-to-coord pos) dir)))
-
-
-(defn within-bounds? [map {y :y x :x}]
-  (and (>= y 0) (< y (:height map)) 
-       (>= x 0) (< x (:width map))))
-
-(defn is-wall-space? [map coord]
-  (and (within-bounds? map coord) 
-       (= const/WALL (board-pos map coord))))
-
 (defn is-floor-space? [map coord]
   (if (within-bounds? map coord)
     (let [piece (board-pos map coord)]
@@ -494,8 +483,12 @@
     (within-bounds? map coord)
     (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
 
+(defn direction-allowable? [map dir pos]
+  (is-floor-space? map (next-coord (point-to-coord pos) dir)))
 
-
+(defn is-wall-space? [map coord]
+  (and (within-bounds? map coord) 
+       (= const/WALL (board-pos map coord))))
 
 (defn add-score [{user :user map :map :as state} points]
   (let [score (:score user)
@@ -515,6 +508,13 @@
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
+(defn get-new-pos [dir {x :x y :y :as pos} speed]
+  (cond 
+    (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
+    (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
+    :else (get-new-coord dir pos speed)))
+
+
 ;; ============================================================================================
 ;; Ghost pathfinding
 
@@ -531,7 +531,7 @@
 (defn adjacency-matrix [mmap]
   (let [h (:height mmap)
         w (:width mmap)
-        coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares.
+        coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares?
         neighbors (map #(get-accessible-neighbors mmap %) coords)
          ]
     (zipmap coords neighbors)))
@@ -567,16 +567,10 @@
     (-shortest-path end adjacency-matrix #{} (conj q [[] start]))
     ))
 
-
 (defn shortest-direction [start end adjacency-matrix]
   (first 
     (next-directions start (second (shortest-path start end adjacency-matrix)))))
 
-(defn get-new-pos [dir {x :x y :y :as pos} speed]
-  (cond 
-    (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
-    (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
-    :else (get-new-coord dir pos speed)))
 
 (defn get-user-direction [map due dir pos]
   (cond 
@@ -599,10 +593,8 @@
       (assoc :phase :countdown))
     state))
 
-
 (defn make-ghost-eatable [ghost]
   { :eatable true })
-
 
 (defn set-eaten-helper [state coord board points]
       (-> state 
@@ -632,7 +624,6 @@
     :up {:x (nearest-10 x) :y y}
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
-
 
 (defn refresh-data [entity map phase dir-func]
   (let [{dir :direction pos :position 
@@ -713,9 +704,6 @@
 (defn ghost-random-move [{dir :direction pos :position speed :speed}]
   {:direction (get-random-direction) 
    :position  (get-new-pos dir (normalize-position dir pos) speed)})
-
-
-
 
 ;; =======================================================
 ;; Game Phases
