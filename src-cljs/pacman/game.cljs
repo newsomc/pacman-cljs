@@ -349,10 +349,10 @@
          eat-pacman? #(and (collided? upos (:position %1)) (not (:eatable %1))) 
          eaten-by-pacman? #(and (collided? upos (:position %1)) (:eatable %1)) 
          set-ghost-eaten (fn [g] 
-                           (if (eaten-by-pacman? g) 
-                             (do 
-                               {:eaten true}) 
-                             {}))
+                           (cond 
+                             (eaten-by-pacman? g) {:eaten true}
+                             (= (point-to-coord (:position g)) {:x 9 :y 8 }) {:eaten false :eatable false} 
+                             :else {}))
          pacman-eaten? (some #{true} (map eat-pacman? ghosts))]
     (if pacman-eaten?
       (assoc state :phase :dying)
@@ -395,6 +395,18 @@
       [0 1] [:down]
       [0 -1] [:up]
       [0 0] [] )))
+
+(defn get-random-direction []
+  (rand-nth [:up :down :left :right]))
+
+(defn opposite-direction [dir]
+  (condp = dir
+    :left :right
+    :right :left
+    :up :down
+    :down :up
+    nil nil
+    ))
 
 (defn next-square [n dir]
   (let [rem (mod n 10)]
@@ -609,11 +621,13 @@
   (assoc-in map [y x] type))
 
 (declare make-ghost-eatable)
+
 (defn set-eaten-helper [state coord board points]
       (-> state 
         (assoc-in [:map :board] (set-block coord board const/EMPTY))
         (update-in [:user :eaten] (fnil inc 0)) 
         (add-score points)))
+
 
 (defn set-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
@@ -649,19 +663,32 @@
         :direction ndir}
       {})))
 
-(declare get-random-direction hunt-pacman)
+(declare flee-pacman hunt-pacman go-to-jail)
+
 
 (defn refresh-user-data [{map :map user :user phase :phase}]
   (refresh-data user map phase get-new-direction))
 
-(defn refresh-ghost-data [ghost {{pos :position} :user map :map phase :phase}]
-  (refresh-data ghost map phase (partial hunt-pacman pos (:adjacency-matrix map))))
+(defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map phase :phase}]
+  (let [strategy (cond 
+                   eaten (partial go-to-jail (:adjacency-matrix map)) 
+                   ;eatable (partial flee-pacman pos (:adjacency-matrix map))
+                   eatable get-random-direction
+                   :else (partial hunt-pacman pos (:adjacency-matrix map)))] 
+    (refresh-data ghost map phase strategy)))
+
 
 (defn hunt-pacman [upos adjacency-matrix _ _ dir gpos]
   (let [
          ucoord (point-to-coord upos)
          gcoord (point-to-coord gpos)]
     (shortest-direction gcoord ucoord adjacency-matrix)))
+
+(def flee-pacman (comp opposite-direction hunt-pacman))
+
+
+(defn go-to-jail [adjacency-matrix _ _ _ gpos]
+  (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-matrix))
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
@@ -719,18 +746,7 @@
     {:x (ghost-add-bounded x x-speed) 
      :y (ghost-add-bounded y y-speed)}))
 
-(defn get-random-direction []
-  (rand-nth [:up :down :left :right]))
 
-
-
-
-(defn opposite-direction [ghost]
-  (condp = (:direction ghost)
-    :left :right
-    :right :left
-    :up :down
-    :up))
 
 (defn seconds-ago [tick]
   (/ (- get-tick tick) const/FPS))
@@ -763,9 +779,12 @@
 
 (defn make-ghost-eatable [ghost]
   {
-   :eatable true
-   :color "#cccccc"
-})
+    :eatable true
+    :color "#cccccc"
+    })
+
+
+
 
 ;; =======================================================
 ;; Game Phases
