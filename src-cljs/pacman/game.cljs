@@ -147,36 +147,39 @@
 ;; =============================================================================
 ;; Draw Pac-Man
 
-(defn calc-angle [dir pos]
+; pacman's mouth angle?
+(defn calc-angle [dir {x :x y :y}]
+  (let [
+         xd (< (mod x 10) 5)
+         yd (< (mod y 10) 5)]
   (cond
-    (and (= dir :right) (< (mod (:x pos) 10) 5)) {:start 0.25 :end 1.75 :direction false}
-    (and (= dir :down)  (< (mod (:y pos) 10) 5)) {:start 0.75 :end 2.25 :direction false}
-    (and (= dir :up)    (< (mod (:y pos) 10) 5)) {:start 1.25 :end 1.75 :direction true}     
-    (and (= dir :left)  (< (mod (:x pos) 10) 5)) {:start 0.75 :end 1.25 :direction true}
-    :else {:start 0 :end 2 :direction false}))
+    (and (= dir :right) xd) {:start 0.25 :end 1.75 :direction false}
+    (and (= dir :down)  yd) {:start 0.75 :end 2.25 :direction false}
+    (and (= dir :up)    yd) {:start 1.25 :end 1.75 :direction true}     
+    (and (= dir :left)  xd) {:start 0.75 :end 1.25 :direction true}
+    :else {:start 0 :end 2 :direction false})))
 
+; draw the two blocks pacman is occupying.
 (defn redraw-block [{map :map :as state}]
-  (let [{{pos :position} :user} state
+  (let [{{{x :x y :y} :position} :user} state
         bs (:block-size map)
-        fy (Math/floor (/ (:y pos) 10))
-        fx (Math/floor (/ (:x pos) 10))
-        cy (Math/ceil (/ (:y pos) 10))
-        cx (Math/ceil (/ (:x pos) 10))]
-    (draw-block state {:y fy :x fx} bs)
-    (draw-block state {:y cy :x cx} bs)
+        f (fn [e] Math/floor (/ e 10))
+        c (fn [e] Math/ceil (/ e 10))]
+    (draw-block state {:y (f y) :x (f x)} bs)
+    (draw-block state {:y (c y) :x (c x)} bs)
     state))
 
 (defn draw-pacman [{map :map user :user :as state}]
   (let [s        (:block-size map)
-        position (:position user)
+        {x :x y :y :as position}  (:position user)
         angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (doto ctx
       (.beginPath)
-      (.moveTo (+ (* (/ (:x position) 10) s) (/ s 2))
-        (+ (* (/ (:y position) 10) s) (/ s 2)))
-      (.arc (+ (* (/ (:x position) 10) s) (/ s 2))
-        (+ (* (/ (:y position) 10) s) (/ s 2))
+      (.moveTo (+ (* (/ x 10) s) (/ s 2))
+        (+ (* (/ y 10) s) (/ s 2)))
+      (.arc (+ (* (/ x 10) s) (/ s 2))
+        (+ (* (/ y 10) s) (/ s 2))
         (/ s 2)
         (* (.-PI js/Math) (:start angle))
         (* (.-PI js/Math) (:end angle))
@@ -188,16 +191,16 @@
 
   (let [size (:block-size map)
         half (/ size 2)
-        position (:position (:user state))]
-    (if-not (>= amount 1)
+        {x :x y :y} (:position (:user state))]
+    (if-not (>= amount 1) ; -> if < amount 1
       (set! (. ctx  -fillStyle) "#FFFF00")
       (doto ctx
         (.beginPath)
-        (.moveTo (+ (* (/ (:x position) 10) size) half)
-          (+ (* (/ (:y position) 10) size) half))
+        (.moveTo (+ (* (/ x 10) size) half)
+          (+ (* (/ y 10) size) half))
 
-        (.arc (+ (* (/ (:x position) 10) size) half)
-          (+ (* (/ (:y position) 10) size) half)
+        (.arc (+ (* (/ x 10) size) half)
+          (+ (* (/ y 10) size) half)
           half
           0
           (* (.-PI js/Math) 2 amount)
