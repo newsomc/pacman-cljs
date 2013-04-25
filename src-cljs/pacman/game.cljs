@@ -88,6 +88,17 @@
   (and (>= y 0) (< y (:height map)) 
        (>= x 0) (< x (:width map))))
 
+(defn nearest-10 [n]
+  (* 10 (Math/round (/ n 10))))
+
+(defn normalize-position [dir {x :x y :y}]
+  (case dir 
+    :left {:x x :y (nearest-10 y)}    
+    :right {:x x :y (nearest-10 y)}    
+    :up {:x (nearest-10 x) :y y}
+    :down {:x (nearest-10 x) :y y}
+    {:x x :y y}))
+
 
 ; Directions
 (defn next-directions [{ax :x ay :y} {bx :x by :y}]
@@ -472,13 +483,6 @@
       (update-ghosts state set-ghost-eaten))))
 
 (defn is-floor-space? [map coord]
-  (if (within-bounds? map coord)
-    (let [piece (board-pos map coord)]
-      (or (= piece const/EMPTY)
-          (= piece const/BISCUIT)
-          (= piece const/PILL)))))
-
-(defn is-floor-space2? [map coord]
   (and 
     (within-bounds? map coord)
     (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
@@ -616,16 +620,6 @@
                    (update-ghosts make-ghost-eatable)) 
       state)))
 
-(defn nearest-10 [n]
-  (* 10 (Math/round (/ n 10))))
-
-(defn normalize-position [dir {x :x y :y}]
-  (case dir 
-    :left {:x x :y (nearest-10 y)}    
-    :right {:x x :y (nearest-10 y)}    
-    :up {:x (nearest-10 x) :y y}
-    :down {:x (nearest-10 x) :y y}
-    {:x x :y y}))
 
 
 ; Refresh data refreshes what is happening with a ghost or pacman.
