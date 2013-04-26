@@ -46,7 +46,6 @@
            }
    :map { :height 22
           :width 19
-          :pill-size 0 
           :block-size 18
           :board const/game-map
           :adjacency-map nil
@@ -142,6 +141,9 @@
     :down { :x x :y (+ y 1) }
     {:x x :y y})) 
 
+(defn previous-coord [p dir]
+  (next-coord p (opposite-direction dir))) 
+
 
 ;; =============================================================================
 ;; Draw game board 
@@ -204,7 +206,7 @@
             (set! (. ctx -fillStyle) "#FFF")
             (.arc ctx (+ (* j block-size) (/ block-size 2))
                       (+ (* i block-size) (/ block-size 2))
-                     (Math/abs (- 5 (/ (:pill-size map) 3)))
+                      5
                       0
                       (* (.-PI js/Math) 2)
                       false)
@@ -638,6 +640,33 @@
          gcoord (point-to-coord gpos)]
     (shortest-direction gcoord ucoord adjacency-map)))
 
+
+(defn hunt-pacman2 [upos adjacency-map _ due dir gpos]
+  (let [gc (point-to-coord gpos)
+        uc (point-to-coord upos)
+        neighbors (get adjacency-map gc)]
+    (if 
+      (or (nil? due) (> 2 (count neighbors)))
+      (shortest-direction gc uc adjacency-map)
+      dir
+)))
+
+(defn turn-random [adjacency-map map _ dir pos]
+  (let [c (point-to-coord pos)
+        next (next-coord c dir)
+        prev (previous-coord c dir)
+        neighbors (get adjacency-map c)
+        random-dir (fn [coords] (next-direction c (rand-nth neighbors)))]
+
+    (cond
+      (nil? dir) (random-dir neighbors)
+      (is-wall-space? map c) (random-dir neighbors)
+      (> 2 (count neighbors)) (random-dir neighbors)
+      :else dir
+      )
+    )
+)
+
 (defn random-legal-direction [adjacency-map _ _ _ pos]
   (let [c (point-to-coord pos)
          neighbors (get adjacency-map c)] 
@@ -656,8 +685,7 @@
                    eaten (partial go-to-jail (:adjacency-map map)) 
                    ;eatable (partial flee-pacman pos (:adjacency-map map))
                    eatable (partial random-legal-direction (:adjacency-map map)) 
-                   ;eatable get-random-direction
-                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
+                   :else (partial turn-random (:adjacency-map map)))] 
     (refresh-data ghost map strategy)))
 
 (defn move-pacman [{user :user :as state} ]
