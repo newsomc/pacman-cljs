@@ -162,12 +162,6 @@
         state)))
   state)
 
-(defn draw-score 
-  [{map :map :as state} text position]
-  (set! (. ctx  -fillStyle) "#FFFFFF")
-  (set! (. ctx -font) "12px BDCartoonShoutRegular")
-  (.fillText ctx text (* 10 (:block-size map)) (* 10 (:block-size map)))
-  state)
 
 (defn draw-wall [map]
   (set! (. ctx -strokeStyle) "#0000FF")
@@ -190,11 +184,9 @@
       (.stroke ctx))))
 
 (defn draw-pills [{map :map :as state}]
-  (let [height     (:height map)
-        width      (:width map)
-        block-size (:block-size map)]
-    (doseq [i (range height)]
-      (doseq [j (range width)]
+  (let [block-size (:block-size map)]
+    (doseq [i (range (:height map))]
+      (doseq [j (range (:width map))]
         (if (= (board-pos map {:y i :x j}) const/PILL)
           (do
             (.beginPath ctx)
@@ -227,14 +219,13 @@
           (/ block-size 6))))
     state))
 
+; What is the idea here?
 (defn draw-block [{map :map :as state} coord block-size] 
   (let [layout (board-pos map coord)]
     (if-not (= layout const/PILL) 
       (do   
         (.beginPath ctx)
-        (if (or (= layout const/EMPTY)
-                (= layout const/BLOCK)
-                (= layout const/BISCUIT)) 
+        (if (#{const/EMPTY const/BLOCK const/BISCUIT} layout) 
           (draw-biscuit coord layout state))
         (.closePath ctx)))
     state))
@@ -275,14 +266,14 @@
 
 (defn draw-map [{map :map :as state}]
   (set! (. ctx  -fillStyle) "#000")
-  (let [width  (:width map)
-        height (:height map)
-        size   (:block-size map)]
-    (.fillRect ctx 0 0 (* width size) (* height size))
+  (let [w  (:width map)
+        h (:height map)
+        bs (:block-size map)]
+    (.fillRect ctx 0 0 (* w bs) (* h bs))
     (draw-wall map)
-    (doseq [i (range height)] 
-      (doseq [j (range width)]
-        (draw-block state {:y i :x j} size)))
+    (doseq [i (range h)] 
+      (doseq [j (range w)]
+        (draw-block state {:y i :x j} bs)))
     state))
 
 ;; =============================================================================
@@ -444,10 +435,9 @@
 ;; =============================================================================
 ;; Update Functions & Helpers
 
+
 (defn start-level [state]
-  (-> state
-    (assoc :timer-start (- (:tick state) 1))
-    (assoc :phase :countdown)))
+  (merge state {:phase :countdown :timer-start (- (:tick state 1))}))
 
 (defn start-new-game [state]
   (-> state (assoc :level 1) start-level))
@@ -580,13 +570,13 @@
     (next-directions start (second (shortest-path start end adjacency-map)))))
 
 (defn get-user-direction [map due dir pos]
+  (let [dir-good-due-bad (and dir
+                (is-wall-space? map (next-coord (point-to-coord pos) due)) 
+                (not (is-wall-space? map (next-coord (point-to-coord pos) dir))))]
   (cond 
-    (and 
-      dir 
-      (is-wall-space? map (next-coord (point-to-coord pos) due)) 
-      (not (is-wall-space? map (next-coord (point-to-coord pos) dir)))) dir
+    dir-good-due-bad dir
     (direction-allowable? map due pos) due
-    :else nil))
+    :else nil)))
 
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
