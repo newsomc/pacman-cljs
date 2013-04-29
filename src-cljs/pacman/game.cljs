@@ -60,14 +60,12 @@
    :timer nil
 })
 
+; need to make get-tick take a state.
 (defn get-tick []
   (:tick game-state))
 
-
-
 ;; =====================================
 ;; Basic board operations.
-
 
 (defn point-difference [{ax :x ay :y} {bx :x by :y}]
   {:x (- bx ax) :y (- by ay)})
@@ -102,7 +100,6 @@
     :up {:x (nearest-10 x) :y y}
     :down {:x (nearest-10 x) :y y}
     {:x x :y y}))
-
 
 ; Directions
 (defn next-directions [a b]
@@ -161,7 +158,6 @@
         (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
   state)
-
 
 (defn draw-wall [map]
   (set! (. ctx -strokeStyle) "#0000FF")
@@ -520,6 +516,17 @@
     :else (get-new-coord dir pos speed)))
 
 
+(defn is-tunnel? [coord])
+(defn get-tunnel-coord [coord])
+
+; work on more generic tunnel logic.
+(defn get-new-pos2 [dir {x :x y :y :as pos} speed]
+  (let [c (point-to-coord pos)]
+    (if (is-tunnel? c)
+      (get-tunnel-coord c)
+      (get-new-coord dir pos speed))))
+
+
 ;; ============================================================================================
 ;; Ghost pathfinding
 
@@ -613,12 +620,10 @@
                    (update-ghosts make-ghost-eatable)) 
       state)))
 
-
-
 ; Refresh data refreshes what is happening with a ghost or pacman.
 ; it takes an agent, a game map, a play phase, and 
 ; dir-func should take the adjacency-map, not the game map...
-(defn refresh-data [agent map dir-func]
+(defn refresh-agent-data [agent map dir-func]
   (let [ {dir :direction pos :position due :due speed :speed } agent
          ndir (dir-func map due dir pos)
          npos (get-new-pos dir (normalize-position dir pos) speed)]
@@ -638,8 +643,7 @@
     (if 
       (or (nil? due) (> 2 (count neighbors)))
       (shortest-direction gc uc adjacency-map)
-      dir
-)))
+      dir)))
 
 (defn turn-random [adjacency-map map _ dir pos]
   (let [c (point-to-coord pos)
@@ -653,9 +657,7 @@
       (is-wall-space? map c) (random-dir neighbors)
       (> 2 (count neighbors)) (random-dir neighbors)
       :else dir
-      )
-    )
-)
+      )))
 
 (defn random-legal-direction [adjacency-map _ _ _ pos]
   (let [c (point-to-coord pos)
@@ -668,15 +670,16 @@
   (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-map))
 
 (defn refresh-pacman-data [{map :map user :user}]
-  (refresh-data user map get-user-direction))
+  (refresh-agent-data user map get-user-direction))
 
 (defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-map map)) 
                    ;eatable (partial flee-pacman pos (:adjacency-map map))
                    eatable (partial random-legal-direction (:adjacency-map map)) 
-                   :else (partial turn-random (:adjacency-map map)))] 
-    (refresh-data ghost map strategy)))
+                   ;:else (partial turn-random (:adjacency-map map))
+                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
+    (refresh-agent-data ghost map strategy)))
 
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
@@ -737,12 +740,10 @@
     (assoc-in [:map :board] const/game-map)))
 
 (defn start-game [state]
-  (-> state
-    (assoc :state-changed false)))
+  (merge state {:state-changed false}))
 
 (defn game-playing [state]
-  (-> state
-    (assoc :phase :playing)))
+  (merge state {:phase :playing}))
 
 (def ticks-remaining (atom 0))
 
@@ -787,10 +788,6 @@
       (swap! ticks-remaining dec)
       state)))
  
-(defn eaten-pill [state]
-  (-> state
-    (assoc :timer-start (:tick state))))
-
 ;; =========================================================
 ;; Main Game Loop
 
