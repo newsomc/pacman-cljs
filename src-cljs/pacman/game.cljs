@@ -141,10 +141,8 @@
 (defn previous-coord [p dir]
   (next-coord p (opposite-direction dir))) 
 
-
 ;; =============================================================================
 ;; Draw game board 
-
 
 (defn draw-dialog [{map :map dialog :dialog :as state}]
   (if dialog
@@ -215,7 +213,6 @@
           (/ block-size 6))))
     state))
 
-; What is the idea here?
 (defn draw-block [{map :map :as state} coord block-size] 
   (let [layout (board-pos map coord)]
     (if-not (= layout const/PILL) 
@@ -275,11 +272,12 @@
 ;; =============================================================================
 ;; Draw Pac-Man
 
-; pacman's mouth angle?
-(defn calc-angle [dir {x :x y :y}]
-  (let [
-         xd (< (mod x 10) 5)
-         yd (< (mod y 10) 5)]
+
+(defn calc-angle 
+  "Pac-Man mouth angle."
+  [dir {x :x y :y}]
+  (let [xd (< (mod x 10) 5)
+        yd (< (mod y 10) 5)]
   (cond
     (and (= dir :right) xd) {:start 0.25 :end 1.75 :direction false}
     (and (= dir :down)  yd) {:start 0.75 :end 2.25 :direction false}
@@ -306,7 +304,6 @@
     state))
 
 (defn draw-dead [{map :map :as state} amount]
-
   (let [size (:block-size map)
         half (/ size 2)
         {x :x y :y} (:position (:user state))]
@@ -379,7 +376,7 @@
 
       ; This pupil isn't working right.
       #_(.arc (+ left 6 (nth (direction offset) 0)) 
-            (+ left 6 (nth (direction offset) 1)) 
+              (+ left 6 (nth (direction offset) 1)) 
             (/ bs 15) 
             0 
             300 false)
@@ -431,7 +428,6 @@
 ;; =============================================================================
 ;; Update Functions & Helpers
 
-
 (defn start-level [state]
   (merge state {:phase :countdown :timer-start (- (:tick state 1))}))
 
@@ -464,7 +460,7 @@
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
 
-; this is not good.
+;; @TODO: Refactor
 (defn check-collided [{user :user ghosts :ghosts :as state}]
   (let [upos (:position user)
          eat-pacman? #(and (collided? upos (:position %1)) (not (:eatable %1))) 
@@ -483,8 +479,6 @@
   (and 
     (within-bounds? map coord)
     (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
-
-
 
 (defn direction-allowable? [map dir pos]
   (is-floor-space? map (next-coord (point-to-coord pos) dir)))
@@ -511,23 +505,13 @@
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
+;; @TODO could be more generic when incorporating tunnel logic.
+;; We should simply ask if the space is a tunnel.
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
     (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
     (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
     :else (get-new-coord dir pos speed)))
-
-
-(defn is-tunnel? [coord])
-(defn get-tunnel-coord [coord])
-
-; work on more generic tunnel logic.
-(defn get-new-pos2 [dir {x :x y :y :as pos} speed]
-  (let [c (point-to-coord pos)]
-    (if (is-tunnel? c)
-      (get-tunnel-coord c)
-      (get-new-coord dir pos speed))))
-
 
 ;; ============================================================================================
 ;; Ghost pathfinding
@@ -547,10 +531,9 @@
 (defn adjacency-map [mmap]
   (let [h (:height mmap)
         w (:width mmap)
-        coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares?
+        coords (for [y (range h) x (range w)] {:x x :y y}) 
         lcoords (filter (partial legal-coord? mmap) coords) 
-        neighbors (map #(get-legal-neighbors mmap %) lcoords)
-         ]
+        neighbors (map #(get-legal-neighbors mmap %) lcoords)]
     (zipmap lcoords neighbors)))
 
 (defn shortest-distance [start end adjacency-map]
@@ -563,10 +546,9 @@
 (defn --shortest-path [end adjacency-map visited queue]
   (let [[path node] (peek queue)
          neighbors (remove visited (get adjacency-map node)) 
-         make-pair (fn [child] [(conj path node) child])
-         ]
+         make-pair (fn [child] [(conj path node) child])]
     (cond
-      (= node end)  (conj path end) 
+      (= node end) (conj path end) 
       (some #{node} visited) (recur end adjacency-map visited (pop queue))
       :else (recur end adjacency-map 
               (conj visited node) 
@@ -583,18 +565,17 @@
     (next-directions start (second (shortest-path start end adjacency-map)))))
 
 (defn get-user-direction [map due dir pos]
-  (let [dir-good-due-bad (and dir
-                (is-wall-space? map (next-coord (point-to-coord pos) due)) 
-                (not (is-wall-space? map (next-coord (point-to-coord pos) dir))))]
+  (let [dir-good-due-bad? (and dir
+                              (is-wall-space? map (next-coord (point-to-coord pos) due)) 
+                              (not (is-wall-space? map (next-coord (point-to-coord pos) dir))))]
   (cond 
-    dir-good-due-bad dir
+    dir-good-due-bad? dir
     (direction-allowable? map due pos) due
     :else nil)))
 
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
 
-;; reset pacman to orig pos code for reseting ghosts
 (defn set-next-level [{level :level map :map :as state}]
   (if (board-empty? (:board map))
     (-> state
@@ -614,7 +595,6 @@
         (update-in [:user :eaten] (fnil inc 0)) 
         (add-score points)))
 
-
 (defn set-eaten [{user :user map :map :as state}]
   (let [{pos :position dir :direction} user
         {board :board} map
@@ -626,10 +606,11 @@
                    (update-ghosts make-ghost-eatable)) 
       state)))
 
-; Refresh data refreshes what is happening with a ghost or pacman.
-; it takes an agent, a game map, a play phase, and 
-; dir-func should take the adjacency-map, not the game map...
-(defn refresh-agent-data [agent map dir-func]
+(defn refresh-agent-data 
+  "Refresh position and direction data for pacman or a ghost. Applies position,
+  due, and dir to a direction function and generates the new position from the
+  old direction."
+  [agent map dir-func]
   (let [ {dir :direction pos :position due :due speed :speed } agent
          ndir (dir-func map due dir pos)
          npos (get-new-pos dir (normalize-position dir pos) speed)]
@@ -640,37 +621,29 @@
          neighbors (get adjacency-map c)] 
     (next-direction c (rand-nth neighbors))))
 
-(defn hunt-pacman [upos adjacency-map _ _ dir gpos]
-  (let [
-         ucoord (point-to-coord upos)
+(defn hunt-pacman 
+  "Pursues pacman by following the shortest path from the ghost to pacman."
+  [upos adjacency-map _ _ dir gpos]
+  (let [ ucoord (point-to-coord upos)
          gcoord (point-to-coord gpos)]
     (shortest-direction gcoord ucoord adjacency-map)))
 
-
-(defn hunt-pacman2 [upos adjacency-map _ due dir gpos]
+(defn hunt-pacman2 
+  "Like hunt-pacman, but chooses a random direction if a square has more than 2 neighbors."
+  [upos adjacency-map _ due dir gpos]
   (let [gc (point-to-coord gpos)
         uc (point-to-coord upos)
         neighbors (count (get adjacency-map gc))]
     (cond
       (> 2 neighbors) (random-legal-direction adjacency-map _ due dir gpos)
-      (= 2 neighbors) 2 (shortest-direction gc uc adjacency-map)
+      (= 2 neighbors) (shortest-direction gc uc adjacency-map)
       :else dir)))
 
-(defn turn-random [adjacency-map map _ dir pos]
-  (let [c (point-to-coord pos)
-        next (next-coord c dir)
-        prev (previous-coord c dir)
-        neighbors (get adjacency-map c)
-        random-dir (fn [coords] (next-direction c (rand-nth neighbors)))]
+;; currently crashing game?
+;; (def flee-pacman (comp opposite-direction hunt-pacman))
 
-    (cond
-      (nil? dir) (random-dir neighbors)
-      (is-wall-space? map c) (random-dir neighbors)
-      (> 2 (count neighbors)) (random-dir neighbors)
-      :else dir
-      )))
-
-(def flee-pacman (comp opposite-direction hunt-pacman))
+;; =====================================================
+;; Ghost states
 
 (defn go-to-jail [adjacency-map _ _ _ gpos]
   (shortest-direction (point-to-coord gpos) {:x 9 :y 8} adjacency-map))
@@ -678,19 +651,17 @@
 (defn refresh-pacman-data [{map :map user :user}]
   (refresh-agent-data user map get-user-direction))
 
-(defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
-  (let [strategy (cond 
-                   eaten (partial go-to-jail (:adjacency-map map)) 
-                   ;eatable (partial flee-pacman pos (:adjacency-map map))
-                   eatable (partial random-legal-direction (:adjacency-map map)) 
-                   ;:else (partial turn-random (:adjacency-map map))
-                   :else (partial hunt-pacman2 pos (:adjacency-map map)))] 
-    (refresh-agent-data ghost map strategy)))
-
 (defn move-pacman [{user :user :as state} ]
   (update-in state [:user]
     (fn [user]
       (merge user (refresh-pacman-data state)))))
+
+(defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
+  (let [strategy (cond 
+                   eaten (partial go-to-jail (:adjacency-map map)) 
+                   eatable (partial random-legal-direction (:adjacency-map map)) 
+                   :else (partial hunt-pacman2 pos (:adjacency-map map)))] 
+    (refresh-agent-data ghost map strategy)))
 
 (defn move-ghosts [{ghosts :ghosts :as state}]
   (letfn [(gd [g] (merge g (refresh-ghost-data g state)))]
@@ -699,13 +670,20 @@
 (defn update-ghosts [state merge-fn]
   (update-in state [:ghosts]
     (fn [ghosts]
-      ;(map #(merge % (merge-fn ghosts)) (:ghosts state))
       (map #(merge % (merge-fn %)) ghosts))))
 
 ;; ============================================================================================
 ;; Ghosts
 
-; these three aren't used currently...
+(defn reset-ghost [ghosts] 
+  {:eaten nil, 
+   :eatable nil, 
+   :position {:x 90, :y 80}
+   :direction (get-random-direction)})
+
+;; ============================================================================================
+;; These three aren't used currently...
+
 (defn seconds-ago [tick]
   (/ (- get-tick tick) const/FPS))
 
@@ -719,21 +697,7 @@
     (:eatable ghost) (ghost-eatable-color ghost)
     (:eaten ghost) "#222"
     :else (:color ghost)))
-
  
-;; =====================================================
-;; Ghost states
-
-(defn reset-ghost [ghosts] 
-  {:eaten nil, 
-   :eatable nil, 
-   :position {:x 90, :y 80}
-   :direction (get-random-direction)})
-
-(defn ghost-random-move [{dir :direction pos :position speed :speed}]
-  {:direction (get-random-direction) 
-   :position  (get-new-pos dir (normalize-position dir pos) speed)})
-
 ;; =======================================================
 ;; Game Phases
 
@@ -759,25 +723,6 @@
       (update-in [:user :lives] dec) ;;doesn't work.
       (update-ghosts reset-ghost)
       (assoc :phase :playing)))
-
-; not fully functioning currently. 
-; replace pacman-dying with this.
-(defn advanced-dying [state]
-  (if (zero? @ticks-remaining)
-    (if (= (:dying-state state) 0)
-      (do
-        (reset! ticks-remaining 0)
-        (-> state 
-          (assoc :phase :playing)
-          (assoc :dying-state 3)))
-      (do 
-        (reset! ticks-remaining const/FPS)))
-    (do
-      (-> state 
-        (draw-dead @ticks-remaining)
-        (update-in [:dying-state] dec))
-      (swap! ticks-remaining dec)
-      state)))
 
 (defn game-countdown [state]
   (if (zero? @ticks-remaining)
@@ -818,8 +763,7 @@
 (defn make-state []
   (-> game-state 
     (update-ghosts reset-ghost)
-    (assoc-in [:map :adjacency-map] (adjacency-map (:map game-state)))
-    ))
+    (assoc-in [:map :adjacency-map] (adjacency-map (:map game-state)))))
 
 (defn loaded []
   (let [init-state (make-state)
@@ -839,8 +783,6 @@
     (.setAttribute canvas "width" (str (* block-size 19) "px"))
     (.setAttribute canvas "height" (str (+ (* block-size 22) 30) "px"))
     (.appendChild wrapper canvas)
-    ;; a bit trickier maybe handle as special? - David
-    ;;(dialog {} "Loading...")
     (loaded)))
 
 ;; Init!
