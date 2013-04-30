@@ -635,6 +635,11 @@
          npos (get-new-pos dir (normalize-position dir pos) speed)]
     { :position npos :direction ndir}))
 
+(defn random-legal-direction [adjacency-map _ _ _ pos]
+  (let [c (point-to-coord pos)
+         neighbors (get adjacency-map c)] 
+    (next-direction c (rand-nth neighbors))))
+
 (defn hunt-pacman [upos adjacency-map _ _ dir gpos]
   (let [
          ucoord (point-to-coord upos)
@@ -645,11 +650,11 @@
 (defn hunt-pacman2 [upos adjacency-map _ due dir gpos]
   (let [gc (point-to-coord gpos)
         uc (point-to-coord upos)
-        neighbors (get adjacency-map gc)]
-    (if 
-      (or (nil? due) (> 2 (count neighbors)))
-      (shortest-direction gc uc adjacency-map)
-      dir)))
+        neighbors (count (get adjacency-map gc))]
+    (cond
+      (> 2 neighbors) (random-legal-direction adjacency-map _ due dir gpos)
+      (= 2 neighbors) 2 (shortest-direction gc uc adjacency-map)
+      :else dir)))
 
 (defn turn-random [adjacency-map map _ dir pos]
   (let [c (point-to-coord pos)
@@ -665,11 +670,6 @@
       :else dir
       )))
 
-(defn random-legal-direction [adjacency-map _ _ _ pos]
-  (let [c (point-to-coord pos)
-         neighbors (get adjacency-map c)] 
-    (next-direction c (rand-nth neighbors))))
-
 (def flee-pacman (comp opposite-direction hunt-pacman))
 
 (defn go-to-jail [adjacency-map _ _ _ gpos]
@@ -684,7 +684,7 @@
                    ;eatable (partial flee-pacman pos (:adjacency-map map))
                    eatable (partial random-legal-direction (:adjacency-map map)) 
                    ;:else (partial turn-random (:adjacency-map map))
-                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
+                   :else (partial hunt-pacman2 pos (:adjacency-map map)))] 
     (refresh-agent-data ghost map strategy)))
 
 (defn move-pacman [{user :user :as state} ]
