@@ -16,7 +16,7 @@
                   :builds nil,
                   :compiler
                   {:pretty-print true,
-                    :output-to "resources/public/js/cljs.js",
+                    :output-to "resources/public/js/pacman.js",
                     :optimizations :simple}}],
                :repl-listen-port 9000}
   :main pacman.routes)
