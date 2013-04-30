@@ -484,6 +484,8 @@
     (within-bounds? map coord)
     (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord))))
 
+
+
 (defn direction-allowable? [map dir pos]
   (is-floor-space? map (next-coord (point-to-coord pos) dir)))
 
@@ -539,13 +541,17 @@
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
+(defn legal-coord? [map coord]
+  (not (nil? (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord)))))
+
 (defn adjacency-map [mmap]
   (let [h (:height mmap)
         w (:width mmap)
         coords (for [y (range h) x (range w)] {:x x :y y}) ; filter invalid starting squares?
-        neighbors (map #(get-legal-neighbors mmap %) coords)
+        lcoords (filter (partial legal-coord? mmap) coords) 
+        neighbors (map #(get-legal-neighbors mmap %) lcoords)
          ]
-    (zipmap coords neighbors)))
+    (zipmap lcoords neighbors)))
 
 (defn shortest-distance [start end adjacency-map]
   (let [neighbors (get adjacency-map start)
