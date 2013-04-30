@@ -8,10 +8,11 @@ out
 pom.xml
 *.jar
 *.class
+*~
 .lein-deps-sum
 .lein-failures
 .lein-plugins
 .lein-env
 .lein-cljsbuild-compiler-0
 .lein-cljsbuild-repl/
-resources/public/js/cljs.js
+resources/public/js/pacman.js
