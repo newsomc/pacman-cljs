@@ -2,7 +2,7 @@
 
 HTML5 + CLJS Pac-Man
 
-[Somewhat Running Version](http://pacman.edgemon.org)
+[Somewhat Working Version](http://pacman.edgemon.org)
 
 ## Prerequisites
 
