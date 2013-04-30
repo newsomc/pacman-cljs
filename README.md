@@ -1,6 +1,6 @@
-# pacman
+# Pac-Man CLJS
 
-HTML 5 ClJs Pac-Man
+HTML5 + CLJS Pac-Man
 
 ## Prerequisites
 
