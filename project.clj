@@ -16,6 +16,6 @@
                   :compiler
                   {:pretty-print true,
                     :output-to "resources/public/js/pacman.js",
-                    :optimizations :advanced}}],
+                    :optimizations :whitespace}}],
                :repl-listen-port 9000}
   :main pacman.routes)
