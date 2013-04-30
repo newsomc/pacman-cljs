@@ -2,6 +2,8 @@
 
 HTML5 + CLJS Pac-Man
 
+(Running Version)[http://pacman.edgemon.org]
+
 ## Prerequisites
 
 * Leiningen 2
