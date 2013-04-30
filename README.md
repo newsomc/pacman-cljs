@@ -35,3 +35,4 @@ or point a server at the directory
 3. Fix catastrophic tunnel bug
 4. Make ghost strategy more random and more efficient
 5. Fix minor movement and drawing problems
+6. Make work in advanced mode
