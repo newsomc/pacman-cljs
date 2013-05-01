@@ -35,6 +35,9 @@ or point a server at the directory
 1. Use requestAnimationFrame
 2. Add sound
 3. Fix catastrophic tunnel bug
-4. Make ghost strategy more random and more efficient
+4. Make ghost strategy random and more efficient
 5. Fix minor movement and drawing problems
-6. Make work in advanced mode
+6. Make game work in advanced mode
+7. Remove browser repl code for production
+8. Move readonly code to a map that is not recopied
+9. Use defrecord for some data
