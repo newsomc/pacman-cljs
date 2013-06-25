@@ -273,18 +273,20 @@
 ;; Draw Pac-Man
 
 ; broken in transition from 10x point system.
+; a description of pacman's mouth
+; describes where the open arc should start and where it should stop.
+
 (defn calc-angle 
   "Pac-Man mouth angle."
   [dir {x :x y :y}]
-  (let [xd (< (mod x 10) 5)
-        yd (< (mod y 10) 5)]
+  (let [xd (< (- x (Math/floor x)) 5)
+        yd (< (- y (Math/floor y)) .5)]
   (cond
     (and (= dir :right) xd) {:start 0.25 :end 1.75 :direction false}
     (and (= dir :down)  yd) {:start 0.75 :end 2.25 :direction false}
     (and (= dir :up)    yd) {:start 1.25 :end 1.75 :direction true}     
     (and (= dir :left)  xd) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false})))
-
 
 
 (defn draw-pacman [{map :map user :user :as state}]
