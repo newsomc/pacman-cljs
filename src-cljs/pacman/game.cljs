@@ -26,7 +26,7 @@
    :specs color, 
    :position nil, 
    :due nil, 
-   :speed 1.6,
+   :speed .16,
    :npos nil,
    :direction nil
     })
@@ -36,10 +36,10 @@
    :dialog "Press N to start a new game"
    :countdown 4
    :dying-state 3
-   :user {:position {:x 90 :y 120}
+   :user {:position {:x 9 :y 12}
           :direction nil
           :due :left
-          :speed 2
+          :speed .2
           :lives 3
           :eaten 0
           :score 0
@@ -81,7 +81,7 @@
   (assoc-in map [y x] type))
 
 (defn point-val-to-coord [n] 
-  (Math/round (/ n 10)))
+  (Math/round n))
 
 (defn point-to-coord [{x :x y :y }]
   {:x (point-val-to-coord x) :y (point-val-to-coord y)})
@@ -90,8 +90,8 @@
   (and (>= y 0) (< y (:height map)) 
        (>= x 0) (< x (:width map))))
 
-(defn nearest-10 [n]
-  (* 10 (Math/round (/ n 10))))
+(defn nearest-10 [n] 
+  (Math/round n))
 
 (defn normalize-position [dir {x :x y :y}]
   (case dir 
@@ -272,7 +272,7 @@
 ;; =============================================================================
 ;; Draw Pac-Man
 
-
+; broken in transition from 10x point system.
 (defn calc-angle 
   "Pac-Man mouth angle."
   [dir {x :x y :y}]
@@ -285,18 +285,20 @@
     (and (= dir :left)  xd) {:start 0.75 :end 1.25 :direction true}
     :else {:start 0 :end 2 :direction false})))
 
+
+
 (defn draw-pacman [{map :map user :user :as state}]
-  (let [s        (:block-size map)
+  (let [bs        (:block-size map)
         {x :x y :y :as position}  (:position user)
         angle    (calc-angle (:direction user) position)]
     (set! (. ctx  -fillStyle) "#FFFF00")
     (doto ctx
       (.beginPath)
-      (.moveTo (+ (* (/ x 10) s) (/ s 2))
-        (+ (* (/ y 10) s) (/ s 2)))
-      (.arc (+ (* (/ x 10) s) (/ s 2))
-        (+ (* (/ y 10) s) (/ s 2))
-        (/ s 2)
+      (.moveTo (+ (* x bs) (/ bs 2))
+        (+ (* y bs) (/ bs 2)))
+      (.arc (+ (* x bs) (/ bs 2))
+        (+ (* y bs) (/ bs 2))
+        (/ bs 2)
         (* (.-PI js/Math) (:start angle))
         (* (.-PI js/Math) (:end angle))
         (:direction angle))
@@ -304,18 +306,18 @@
     state))
 
 (defn draw-dead [{map :map :as state} amount]
-  (let [size (:block-size map)
-        half (/ size 2)
+  (let [bs (:block-size map)
+        half (/ bs 2)
         {x :x y :y} (:position (:user state))]
     (if-not (>= amount 1) ; -> if < amount 1
       (set! (. ctx  -fillStyle) "#FFFF00")
       (doto ctx
         (.beginPath)
-        (.moveTo (+ (* (/ x 10) size) half)
-          (+ (* (/ y 10) size) half))
+        (.moveTo (+ (* (/ x 10) bs) half)
+          (+ (* (/ y 10) bs) half))
 
-        (.arc (+ (* (/ x 10) size) half)
-          (+ (* (/ y 10) size) half)
+        (.arc (+ (* (/ x 10) bs) half)
+          (+ (* (/ y 10) bs) half)
           half
           0
           (* (.-PI js/Math) 2 amount)
@@ -330,8 +332,8 @@
   (let [ position (:position ghost)
          bs (:block-size map)
          eatable (:eatable ghost)
-         top (* (/ (:y position) 10) bs)
-         left (* (/ (:x position) 10) bs)
+         top (* (:y position) bs)
+         left (* (:x position) bs)
          base (- (+ top bs) 3)
          tl (+ left bs)
          inc (/ bs 10)
@@ -509,8 +511,8 @@
 ;; We should simply ask if the space is a tunnel.
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
-    (and (= y 100) (>= x 176) (= dir :right)) {:y 100 :x -10}
-    (and (= y 100) (<= x 4) (= dir :left))  {:y 100 :x 190}
+    (and (= y 10) (>= x 17.6) (= dir :right)) {:y 10 :x -1}
+    (and (= y 10) (<= x .4) (= dir :left))  {:y 10 :x 19}
     :else (get-new-coord dir pos speed)))
 
 ;; ============================================================================================
@@ -581,7 +583,7 @@
     (-> state
       (update-in [:level] inc)
       (assoc-in [:map :board] const/game-map)
-      (assoc-in [:user :position] {:x 90 :y 120})
+      (assoc-in [:user :position] {:x 9 :y 12})
       (update-ghosts reset-ghost)
       (assoc :phase :countdown))
     state))
@@ -678,7 +680,7 @@
 (defn reset-ghost [ghosts] 
   {:eaten nil, 
    :eatable nil, 
-   :position {:x 90, :y 80}
+   :position {:x 9, :y 8}
    :direction (get-random-direction)})
 
 ;; ============================================================================================
@@ -719,7 +721,7 @@
 
 (defn pacman-dying [state]
     (-> state
-      (assoc-in [:user :position] {:x 90 :y 120})
+      (assoc-in [:user :position] {:x 9 :y 12})
       (update-in [:user :lives] dec) ;;doesn't work.
       (update-ghosts reset-ghost)
       (assoc :phase :playing)))
