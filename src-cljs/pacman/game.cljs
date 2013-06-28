@@ -279,7 +279,7 @@
 (defn calc-angle 
   "Pac-Man mouth angle."
   [dir {x :x y :y}]
-  (let [xd (< (- x (Math/floor x)) 5)
+  (let [xd (< (- x (Math/floor x)) .5)
         yd (< (- y (Math/floor y)) .5)]
   (cond
     (and (= dir :right) xd) {:start 0.25 :end 1.75 :direction false}
@@ -664,7 +664,7 @@
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-map map)) 
                    eatable (partial random-legal-direction (:adjacency-map map)) 
-                   :else (partial hunt-pacman2 pos (:adjacency-map map)))] 
+                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
     (refresh-agent-data ghost map strategy)))
 
 (defn move-ghosts [{ghosts :ghosts :as state}]
