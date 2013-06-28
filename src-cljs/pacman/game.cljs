@@ -96,7 +96,9 @@
     {:x x :y y}))
 
 ; Directions
+
 (defn next-directions [a b]
+  ; get all directions that will lead from a to b.
   (let [{dx :x dy :y} (point-difference a b)]
     (case [(compare dx 0) (compare dy 0)] 
       [1 1] [:right :down]
@@ -125,6 +127,7 @@
     nil nil))
 
 (defn next-coord [{x :x y :y} dir]
+  ; Get the adjacent coord in a given direction.
   (case dir
     :left { :x (- x 1) :y y }
     :right { :x (+ x 1) :y y }
@@ -150,6 +153,8 @@
         (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
   state)
+
+
 
 (defn draw-wall [map]
   (set! (. ctx -strokeStyle) "#0000FF")
@@ -263,12 +268,10 @@
         (draw-block state {:y i :x j} bs)))
     state))
 
+
+
 ;; =============================================================================
 ;; Draw Pac-Man
-
-; broken in transition from 10x point system.
-; a description of pacman's mouth
-; describes where the open arc should start and where it should stop.
 
 (defn calc-angle 
   "Pac-Man mouth angle."
@@ -492,6 +495,16 @@
       (update-in new-score [:user :lives] inc)
       new-score)))
 
+(defn set-next-level [{level :level map :map :as state}]
+  (if (board-empty? (:board map))
+    (-> state
+      (update-in [:level] inc)
+      (assoc-in [:map :board] const/game-map)
+      (assoc-in [:user :position] {:x 9 :y 12})
+      (update-ghosts reset-ghost)
+      (assoc :phase :countdown))
+    state))
+
 ;; ============================================================================================
 ;; Move Pac-Man
 
@@ -503,7 +516,7 @@
     :down  {:x x :y (+ y speed)}
     {:x x :y y}))
 
-;; @TODO could be more generic when incorporating tunnel logic.
+;; @TODO be more generic when incorporating tunnel logic.
 ;; We should simply ask if the space is a tunnel.
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
@@ -514,15 +527,19 @@
 ;; ============================================================================================
 ;; Ghost pathfinding
 
+
+; merge these two.
 (defn get-neighbors [map {x :x y :y}]
-  (letfn [(legal? [coord] (within-bounds? map coord))
-           (l? [coord] true)]
-  (filter legal? [{:x (+ 1 x) :y y} {:x (- x 1) :y y} {:x x :y (+ 1 y)} {:x x :y (- y 1)}])))
+  ; find neighboring that are within map boundaries
+  (letfn [(on-map? [coord] (within-bounds? map coord))]
+  (filter on-map? [{:x (+ 1 x) :y y} {:x (- x 1) :y y} {:x x :y (+ 1 y)} {:x x :y (- y 1)}])))
 
 (defn get-legal-neighbors [map coord]
+  ; find neighbors that are on map and aren't walls.
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
+; this seems too similar to get-legal-neighbors.
 (defn legal-coord? [map coord]
   (not (nil? (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord)))))
 
@@ -535,12 +552,14 @@
     (zipmap lcoords neighbors)))
 
 (defn shortest-distance [start end adjacency-map]
+  ; something's wrong in denmark.
   (let [neighbors (get adjacency-map start)
          reducer (fn [a b] 
                    (if (< (distance a end) (distance b end))
                      a b))]
     (reduce reducer neighbors)))
 
+; these are way too slow - PersistentQueue is slow?
 (defn --shortest-path [end adjacency-map visited queue]
   (let [[path node] (peek queue)
          neighbors (remove visited (get adjacency-map node)) 
@@ -574,15 +593,6 @@
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
 
-(defn set-next-level [{level :level map :map :as state}]
-  (if (board-empty? (:board map))
-    (-> state
-      (update-in [:level] inc)
-      (assoc-in [:map :board] const/game-map)
-      (assoc-in [:user :position] {:x 9 :y 12})
-      (update-ghosts reset-ghost)
-      (assoc :phase :countdown))
-    state))
 
 (defn make-ghost-eatable [ghost]
   { :eatable true })
@@ -680,7 +690,7 @@
    :direction (get-random-direction)})
 
 ;; ============================================================================================
-;; These three aren't used currently...
+;; These three aren't used currently.
 
 (defn seconds-ago [tick]
   (/ (- get-tick tick) const/FPS))
