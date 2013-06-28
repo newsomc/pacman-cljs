@@ -80,25 +80,19 @@
 (defn set-block [{x :x y :y} map type] 
   (assoc-in map [y x] type))
 
-(defn point-val-to-coord [n] 
-  (Math/round n))
-
 (defn point-to-coord [{x :x y :y }]
-  {:x (point-val-to-coord x) :y (point-val-to-coord y)})
+  {:x (Math/round x) :y (Math/round y)})
 
 (defn within-bounds? [map {y :y x :x}]
   (and (>= y 0) (< y (:height map)) 
        (>= x 0) (< x (:width map))))
 
-(defn nearest-10 [n] 
-  (Math/round n))
-
 (defn normalize-position [dir {x :x y :y}]
   (case dir 
-    :left {:x x :y (nearest-10 y)}    
-    :right {:x x :y (nearest-10 y)}    
-    :up {:x (nearest-10 x) :y y}
-    :down {:x (nearest-10 x) :y y}
+    :left {:x x :y (Math/round y)}    
+    :right {:x x :y (Math/round y)}    
+    :up {:x (Math/round x) :y y}
+    :down {:x (Math/round x) :y y}
     {:x x :y y}))
 
 ; Directions
@@ -644,7 +638,7 @@
       :else dir)))
 
 ;; currently crashing game?
-;; (def flee-pacman (comp opposite-direction hunt-pacman))
+(def flee-pacman (comp opposite-direction hunt-pacman))
 
 ;; =====================================================
 ;; Ghost states
@@ -663,7 +657,7 @@
 (defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-map map)) 
-                   eatable (partial random-legal-direction (:adjacency-map map)) 
+                   eatable (partial flee-pacman (:adjacency-map map)) 
                    :else (partial hunt-pacman pos (:adjacency-map map)))] 
     (refresh-agent-data ghost map strategy)))
 
