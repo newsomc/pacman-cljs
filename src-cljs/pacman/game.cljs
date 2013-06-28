@@ -647,6 +647,18 @@
       (= 2 neighbors) (shortest-direction gc uc adjacency-map)
       :else dir)))
 
+
+(defn wander
+  "More pacman-like ghost behavior."
+  [upos adjacency-map map due dir gpos]
+  (let [gc (point-to-coord gpos)         
+         ]
+    (cond
+      (= dir nil) (random-legal-direction adjacency-map _ due dir gpos)
+      ((legal-coord? map (next-coord gpos dir)) dir)
+      :else (random-legal-direction adjacency-map _ due dir gpos))))
+
+
 ;; currently crashing game?
 (def flee-pacman (comp opposite-direction hunt-pacman))
 
@@ -667,8 +679,8 @@
 (defn refresh-ghost-data [{eatable :eatable eaten :eaten :as ghost} {{pos :position} :user map :map}]
   (let [strategy (cond 
                    eaten (partial go-to-jail (:adjacency-map map)) 
-                   eatable (partial flee-pacman (:adjacency-map map)) 
-                   :else (partial hunt-pacman pos (:adjacency-map map)))] 
+                   eatable (partial random-legal-direction (:adjacency-map map)) 
+                   :else (partial wander pos (:adjacency-map map)))] 
     (refresh-agent-data ghost map strategy)))
 
 (defn move-ghosts [{ghosts :ghosts :as state}]
