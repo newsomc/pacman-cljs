@@ -3,7 +3,7 @@
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [goog.dom :as dom]
-            [clojure.browser.repl :as repl]))
+            [clojure.browser.repl :as repl]))xo
 
 (repl/connect "http://localhost:9000/repl")
 
@@ -655,9 +655,8 @@
          ]
     (cond
       (= dir nil) (random-legal-direction adjacency-map _ due dir gpos)
-      ((legal-coord? map (next-coord gpos dir)) dir)
+      (legal-coord? map (next-coord gpos dir)) dir
       :else (random-legal-direction adjacency-map _ due dir gpos))))
-
 
 ;; currently crashing game?
 (def flee-pacman (comp opposite-direction hunt-pacman))
