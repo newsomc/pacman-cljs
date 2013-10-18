@@ -21,7 +21,7 @@ To compile, fire up cljsbuild
 
 or if you want to build continuously 
 
-	line cljsbuild auto 
+	lein cljsbuild auto 
 
 To start a Clojure web server for the application, run
 
