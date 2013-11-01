@@ -28,8 +28,7 @@
    :due nil, 
    :speed .16,
    :npos nil,
-   :direction nil
-    })
+   :direction nil})
 
 (def game-state
   {:phase :waiting
@@ -57,14 +56,14 @@
    :state-changed true
    :timer-start nil
    :last-time 0
-   :timer nil
-})
+   :timer nil})
 
-; need to make get-tick take a state.
+;; =============================================================================
+;; todo: Need to make get-tick take a state.
 (defn get-tick []
   (:tick game-state))
 
-;; =====================================
+;; =============================================================================
 ;; Basic board operations.
 
 (defn point-difference [{ax :x ay :y} {bx :x by :y}]
@@ -95,10 +94,12 @@
     :down {:x (Math/round x) :y y}
     {:x x :y y}))
 
-; Directions
+;; =============================================================================
+;; Directions
 
-(defn next-directions [a b]
-  ; get all directions that will lead from a to b.
+(defn next-directions 
+  "Get all directions that will lead from a to b."
+  [a b]
   (let [{dx :x dy :y} (point-difference a b)]
     (case [(compare dx 0) (compare dy 0)] 
       [1 1] [:right :down]
@@ -126,8 +127,9 @@
     :down :up
     nil nil))
 
-(defn next-coord [{x :x y :y} dir]
-  ; Get the adjacent coord in a given direction.
+(defn next-coord 
+  "Get the adjacent coord in a given direction."
+  [{x :x y :y} dir]
   (case dir
     :left { :x (- x 1) :y y }
     :right { :x (+ x 1) :y y }
@@ -153,8 +155,6 @@
         (.fillText ctx dialog x (+ (* map-height 10) 8))
         state)))
   state)
-
-
 
 (defn draw-wall [map]
   (set! (. ctx -strokeStyle) "#0000FF")
@@ -268,13 +268,11 @@
         (draw-block state {:y i :x j} bs)))
     state))
 
-
-
 ;; =============================================================================
 ;; Draw Pac-Man
 
 (defn calc-angle 
-  "Pac-Man mouth angle."
+  "Pac-Man's mouth angle."
   [dir {x :x y :y}]
   (let [xd (< (- x (Math/floor x)) .5)
         yd (< (- y (Math/floor y)) .5)]
@@ -346,7 +344,7 @@
       (set! (. ctx -fillStyle) "#cccccc")
       (set! (. ctx -fillStyle) (:color ghost)))
 
-    ;; Body
+    ;; Ghost Body
     (doto ctx
       (.beginPath)
       (.moveTo left base)
@@ -363,7 +361,7 @@
 
     (set! (. ctx -fillStyle) "#FFF")
 
-   ;; Whites of eyes
+   ;; Whites of a ghost's eyes
     (doto ctx
       (.arc (+ left 6) (+ top 6) (/ bs 6) 0 300 false)
       (.arc (- (+ left bs) 6) (+ top 6) (/ bs 6) 0 300 false)
@@ -375,7 +373,7 @@
     (set! (. ctx -fillStyle) "#000")
     (doto ctx
 
-      ; This pupil isn't working right.
+      ;; This pupil isn't working right.
       #_(.arc (+ left 6 (nth (direction offset) 0)) 
               (+ left 6 (nth (direction offset) 1)) 
             (/ bs 15) 
@@ -458,6 +456,11 @@
           (assoc-in state [:user :due] (get controls kc)))
         state))))
 
+
+
+;; =============================================================================
+;; Check and return new state.
+
 (defn collided? [upos gpos]
   (= (point-to-coord upos) (point-to-coord gpos)))
 
@@ -517,7 +520,7 @@
     {:x x :y y}))
 
 ;; @TODO be more generic when incorporating tunnel logic.
-;; We should simply ask if the space is a tunnel.
+;; Simply ask if the space is a tunnel.
 (defn get-new-pos [dir {x :x y :y :as pos} speed]
   (cond 
     (and (= y 10) (>= x 17.6) (= dir :right)) {:y 10 :x -1}
@@ -526,20 +529,21 @@
 
 ;; ============================================================================================
 ;; Ghost pathfinding
+;; @TODO merge the following two functions.
 
-
-; merge these two.
-(defn get-neighbors [map {x :x y :y}]
-  ; find neighboring that are within map boundaries
+(defn get-neighbors
+  "Find neighboring coords that are within map boundaries."
+  [map {x :x y :y}]
   (letfn [(on-map? [coord] (within-bounds? map coord))]
   (filter on-map? [{:x (+ 1 x) :y y} {:x (- x 1) :y y} {:x x :y (+ 1 y)} {:x x :y (- y 1)}])))
 
-(defn get-legal-neighbors [map coord]
-  ; find neighbors that are on map and aren't walls.
+(defn get-legal-neighbors 
+  "Find neighbors that are on map and aren't walls."
+  [map coord]
   (letfn [(path? [c] (some #(= (board-pos map c) %) [const/BISCUIT const/PILL const/EMPTY]))]
     (filter path? (get-neighbors map coord))))
 
-; this seems too similar to get-legal-neighbors.
+;; @TODO: Determine if needed. This seems too similar to get-legal-neighbors.
 (defn legal-coord? [map coord]
   (not (nil? (#{const/BISCUIT const/PILL const/EMPTY} (board-pos map coord)))))
 
@@ -552,14 +556,13 @@
     (zipmap lcoords neighbors)))
 
 (defn shortest-distance [start end adjacency-map]
-  ; something's wrong in denmark.
   (let [neighbors (get adjacency-map start)
          reducer (fn [a b] 
                    (if (< (distance a end) (distance b end))
                      a b))]
     (reduce reducer neighbors)))
 
-; these are way too slow - PersistentQueue is slow?
+;; Note: These are way too slow - PersistentQueue is slow?
 (defn --shortest-path [end adjacency-map visited queue]
   (let [[path node] (peek queue)
          neighbors (remove visited (get adjacency-map node)) 
@@ -577,6 +580,9 @@
   (let [q cljs.core.PersistentQueue/EMPTY]
     (-shortest-path end adjacency-map #{} (conj q [[] start]))))
 
+;; =============================================================================
+;; Ghost direction functions.
+
 (defn shortest-direction [start end adjacency-map]
   (first 
     (next-directions start (second (shortest-path start end adjacency-map)))))
@@ -593,9 +599,11 @@
 (defn board-empty? [board]
   (nil? (some #{const/BISCUIT const/PILL} (flatten board))))
 
-
 (defn make-ghost-eatable [ghost]
   { :eatable true })
+
+;; =============================================================================
+;; Return new state for eaten ghosts.
 
 (defn set-eaten-helper [state coord board points]
       (-> state 
@@ -658,7 +666,7 @@
       (legal-coord? map (next-coord gpos dir)) dir
       :else (random-legal-direction adjacency-map _ due dir gpos))))
 
-;; currently crashing game?
+;; Meh. Gurrently crashing game?
 (def flee-pacman (comp opposite-direction hunt-pacman))
 
 ;; =====================================================
@@ -702,6 +710,7 @@
 
 ;; ============================================================================================
 ;; These three aren't used currently.
+;; @TODO: Remove.
 
 (defn seconds-ago [tick]
   (/ (- get-tick tick) const/FPS))
@@ -739,7 +748,7 @@
 (defn pacman-dying [state]
     (-> state
       (assoc-in [:user :position] {:x 9 :y 12})
-      (update-in [:user :lives] dec) ;;doesn't work.
+      (update-in [:user :lives] dec) ;; Doesn't work!
       (update-ghosts reset-ghost)
       (assoc :phase :playing)))
 
