@@ -30,6 +30,11 @@ To start a Clojure web server for the application, run
 or point a server at the directory
 
 	pacman/resources/public/
+	
+	
+## Resources
+
+[Understanding pacman ghost behavior](http://gameinternals.com/post/2072558330/understanding-pac-man-ghost-behavior)
 
 ## Todo
 1. Use requestAnimationFrame
