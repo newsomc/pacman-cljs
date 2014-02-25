@@ -3,7 +3,7 @@
   (:require [pacman.constants :as const]
             [pacman.helpers :as helper]
             [goog.dom :as dom]
-            [clojure.browser.repl :as repl]))xo
+            [clojure.browser.repl :as repl]))
 
 (repl/connect "http://localhost:9000/repl")
 
